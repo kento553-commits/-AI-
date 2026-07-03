@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import {
   ArrowLeft,
   BarChart3,
@@ -44,8 +45,71 @@ type ReceiptFilter =
   | { type: "moodChange" }
   | { type: "selfDecision" };
 
+type ConversationMessage = {
+  role?: string;
+  text?: string;
+};
+
+type RawConversation = {
+  aiService?: string;
+  url?: string;
+  capturedAt?: string;
+  conversationTitle?: string;
+  messages?: ConversationMessage[];
+};
+
+type ThoughtReceiptCandidate = {
+  aiService: string;
+  conversationDate: string;
+  topic: string;
+  aiRole: string;
+  aiAdded: string;
+  selfDecision: string;
+  feelingAfter: string;
+  thinkingBalance: string;
+};
+
+type CandidateField = keyof ThoughtReceiptCandidate;
+
+type IssuedThinkingReceipt = ThoughtReceiptCandidate & {
+  receiptNo: string;
+  issuedAt: string;
+};
+
 // 応募用プロトタイプなので、外部DBではなく画面確認用のサンプルデータを置いています。
 const STORAGE_KEY = "watashi-to-ai-thought-receipts";
+const RAW_CONVERSATION_KEY = "aiConversationRaw";
+const THINKING_LEDGER_KEY = "thinkingLedger";
+const RECEIPT_HASH_KEY = "receipt";
+const DRAFT_QUERY_KEY = "draft";
+
+const aiRoleOptions = [
+  "壁打ち相手",
+  "調査役",
+  "先生",
+  "編集者",
+  "デザイナー",
+  "カウンセラー",
+  "参謀",
+  "相棒",
+  "その他",
+];
+
+const feelingAfterOptions = [
+  "すっきりした",
+  "考えが広がった",
+  "安心した",
+  "迷いが増えた",
+  "頼りすぎたかも",
+  "まだ保留",
+];
+
+const thinkingBalanceOptions = [
+  "自分の判断が多い",
+  "AIの助けが多い",
+  "一緒に考えた",
+  "まだ保留",
+];
 
 const initialReceipts: ThoughtReceipt[] = [
   {
@@ -308,6 +372,18 @@ function App() {
   const [saveMessage, setSaveMessage] = useState("");
   const [toastMessage, setToastMessage] = useState("");
   const [highlightedReceiptId, setHighlightedReceiptId] = useState<string | null>(null);
+  const [conversationCandidate, setConversationCandidate] =
+    useState<ThoughtReceiptCandidate | null>(null);
+  const [conversationMessage, setConversationMessage] = useState("");
+  const [candidateIssueMessage, setCandidateIssueMessage] = useState("");
+  const [issuedReceipt, setIssuedReceipt] = useState<IssuedThinkingReceipt | null>(null);
+  const [receiptUrl, setReceiptUrl] = useState("");
+  const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [qrMessage, setQrMessage] = useState("");
+  const [ledgerMessage, setLedgerMessage] = useState("");
+  const [receiptActionMessage, setReceiptActionMessage] = useState("");
+  const [thinkingLedger, setThinkingLedger] =
+    useState<IssuedThinkingReceipt[]>(loadThinkingLedger);
   const stats = useMemo(() => buildStats(receiptData), [receiptData]);
   const settlementStats = useMemo(() => buildSettlementStats(receiptData), [receiptData]);
 
@@ -330,6 +406,78 @@ function App() {
       setAnalysisFocus(null);
     }, 80);
   }, [activeTab, analysisFocus]);
+
+  useEffect(() => {
+    const restoredReceipt = restoreReceiptFromUrl();
+    if (!restoredReceipt) return;
+
+    setIssuedReceipt(restoredReceipt);
+    setConversationCandidate(toReceiptCandidate(restoredReceipt));
+    setConversationMessage("URLから思考レシートを復元しました。内容を確認して帳簿に保存できます。");
+    setCandidateIssueMessage("復元済みのレシートです。");
+    setIsSettlementOpen(false);
+    setActiveTab("home");
+    scrollScreenToTop("auto");
+    clearDraftQueryParam();
+  }, []);
+
+  useEffect(() => {
+    if (restoreReceiptFromUrl()) return;
+
+    const draftConversation = restoreDraftConversationFromUrl();
+    if (!draftConversation) return;
+
+    try {
+      localStorage.setItem(RAW_CONVERSATION_KEY, JSON.stringify(draftConversation));
+    } catch {
+      // URLからの取り込み自体は続けます。localStorage保存は再読み込み用の補助です。
+    }
+
+    setConversationCandidate(classifyConversation(draftConversation));
+    setConversationMessage(
+      "URLパラメータからAI会話データを読み込み、思考レシート候補を作成しました。内容を確認してから発行してください。",
+    );
+    setCandidateIssueMessage("");
+    setIssuedReceipt(null);
+    setLedgerMessage("");
+    setIsSettlementOpen(false);
+    setActiveTab("home");
+    scrollScreenToTop("auto");
+    clearDraftQueryParam();
+  }, []);
+
+  useEffect(() => {
+    if (!issuedReceipt) {
+      setReceiptUrl("");
+      setQrCodeUrl("");
+      setQrMessage("");
+      return;
+    }
+
+    const url = createReceiptUrl(issuedReceipt);
+    setReceiptUrl(url);
+    setQrCodeUrl("");
+    setQrMessage("");
+
+    let cancelled = false;
+    QRCode.toDataURL(url, {
+      errorCorrectionLevel: "M",
+      margin: 1,
+      width: 220,
+    })
+      .then((dataUrl: string) => {
+        if (cancelled) return;
+        setQrCodeUrl(dataUrl);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setQrMessage("QRコードを生成できませんでした。レシート内容を短くして再発行してください。");
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [issuedReceipt]);
 
   function openReader() {
     setIsSettlementOpen(false);
@@ -456,14 +604,144 @@ function App() {
     window.setTimeout(() => setToastMessage(""), 4200);
   }
 
+  function loadExtensionConversation() {
+    try {
+      const stored = localStorage.getItem(RAW_CONVERSATION_KEY);
+      if (!stored) {
+        setConversationCandidate(null);
+        setCandidateIssueMessage("");
+        setConversationMessage("拡張機能の会話データが見つかりません。");
+        return;
+      }
+
+      const parsed = JSON.parse(stored) as RawConversation;
+      const candidate = classifyConversation(parsed);
+      setConversationCandidate(candidate);
+      setCandidateIssueMessage("");
+      setIssuedReceipt(null);
+      setLedgerMessage("");
+      setReceiptActionMessage("");
+      setConversationMessage(
+        "AIとの会話から、思考レシート候補を作成しました。内容を確認してから発行してください。",
+      );
+      setIsSettlementOpen(false);
+      setActiveTab("home");
+      scrollScreenToTop("smooth");
+    } catch {
+      setConversationCandidate(null);
+      setCandidateIssueMessage("");
+      setConversationMessage("会話データを読み込めませんでした。保存形式を確認してください。");
+    }
+  }
+
+  function updateConversationCandidate(field: CandidateField, value: string) {
+    setConversationCandidate((current) =>
+      current ? { ...current, [field]: value } : current,
+    );
+    setCandidateIssueMessage("");
+    setIssuedReceipt(null);
+    setLedgerMessage("");
+    setReceiptActionMessage("");
+  }
+
+  function issueConversationCandidate() {
+    if (!conversationCandidate) return;
+    const receipt = createIssuedReceipt(conversationCandidate);
+    setIssuedReceipt(receipt);
+    setLedgerMessage("");
+    setReceiptActionMessage("");
+    setCandidateIssueMessage(
+      "レシートを発行しました。QRコードを読み取ると同じレシート情報を復元できます。",
+    );
+  }
+
+  function saveIssuedReceiptToLedger() {
+    if (!issuedReceipt) return;
+
+    try {
+      const receiptData = issuedReceipt;
+      const current = loadThinkingLedger();
+      const exists = current.some((receipt) => receipt.receiptNo === receiptData.receiptNo);
+      const updatedLedger = exists ? current : [receiptData, ...current];
+      localStorage.setItem(
+        THINKING_LEDGER_KEY,
+        JSON.stringify(updatedLedger),
+      );
+      console.log("saved receipt", receiptData);
+      console.log("thinkingLedger", updatedLedger);
+      setThinkingLedger(updatedLedger);
+      setLedgerMessage("思考帳簿に保存しました");
+      setLedgerMessage("帳簿に保存しました。");
+    } catch {
+      setLedgerMessage("帳簿に保存できませんでした。ブラウザの保存設定を確認してください。");
+    }
+  }
+
+  function printIssuedReceipt() {
+    window.print();
+  }
+
+  async function copyReceiptUrl() {
+    if (!receiptUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(receiptUrl);
+      setReceiptActionMessage("共有URLをコピーしました");
+    } catch {
+      setReceiptActionMessage("共有URLをコピーできませんでした。復元URL欄からコピーしてください。");
+    }
+  }
+
   return (
     <div className="app-shell">
       <main className="phone-frame">
         <Header onOpenSettlement={openSettlement} />
         <div className="screen" ref={screenRef}>
+          {!isSettlementOpen && activeTab === "home" && !issuedReceipt && (
+            <section className="extension-import-card extension-import-card-top">
+              <button
+                className="extension-import-button"
+                type="button"
+                onClick={loadExtensionConversation}
+              >
+                <ScanLine size={18} />
+                拡張機能データを読み込む
+              </button>
+              {conversationMessage && (
+                <div className="candidate-message" role="status">
+                  <CheckCircle2 size={18} />
+                  <p>{conversationMessage}</p>
+                </div>
+              )}
+              {conversationCandidate && (
+                <ConversationCandidateForm
+                  candidate={conversationCandidate}
+                  issueMessage={candidateIssueMessage}
+                  onChange={updateConversationCandidate}
+                  onIssue={issueConversationCandidate}
+                />
+              )}
+            </section>
+          )}
+          {!isSettlementOpen && activeTab === "home" && issuedReceipt && (
+            <section className="extension-import-card extension-import-card-top">
+              <IssuedReceiptPanel
+                receipt={issuedReceipt}
+                receiptUrl={receiptUrl}
+                qrCodeUrl={qrCodeUrl}
+                  qrMessage={qrMessage}
+                  ledgerMessage={ledgerMessage}
+                  actionMessage={receiptActionMessage}
+                  onSave={saveIssuedReceiptToLedger}
+                  onPrint={printIssuedReceipt}
+                  onCopyUrl={copyReceiptUrl}
+                />
+            </section>
+          )}
           {isSettlementOpen && (
             <ThoughtSettlementScreen
               stats={settlementStats}
+              ledgerReceipts={thinkingLedger}
               onBackHome={closeSettlement}
             />
           )}
@@ -483,6 +761,7 @@ function App() {
           {!isSettlementOpen && activeTab === "receipts" && (
             <ReceiptsScreen
               receipts={receiptData}
+              thinkingLedger={thinkingLedger}
               filter={receiptFilter}
               filterOrigin={filterOrigin}
               highlightedReceiptId={highlightedReceiptId}
@@ -541,12 +820,15 @@ function ToastMessage({ message }: { message: string }) {
 
 function ThoughtSettlementScreen({
   stats,
+  ledgerReceipts,
   onBackHome,
 }: {
   stats: ReturnType<typeof buildSettlementStats>;
+  ledgerReceipts: IssuedThinkingReceipt[];
   onBackHome: () => void;
 }) {
   const [isPreviousOpen, setIsPreviousOpen] = useState(false);
+  const ledgerStats = buildLedgerStats(ledgerReceipts);
 
   function closePreviousSettlement() {
     setIsPreviousOpen(false);
@@ -574,6 +856,16 @@ function ThoughtSettlementScreen({
       <section className="settlement-paper-card">
         <SectionTitle icon={<BookOpenText size={18} />} title="今月のまとめコメント" />
         <p className="settlement-summary">{stats.summary}</p>
+      </section>
+
+      <section className="settlement-paper-card">
+        <SectionTitle icon={<WalletCards size={18} />} title="思考帳簿の保存データ" />
+        <div className="settlement-metric-grid">
+          <SettlementMetric label="保存済みレシート" value={`${ledgerStats.count}件`} />
+          <SettlementMetric label="よく使ったAI" value={ledgerStats.topService} />
+          <SettlementMetric label="多いAI役割" value={ledgerStats.topRole} />
+          <SettlementMetric label="多い思考残高" value={ledgerStats.topBalance} />
+        </div>
       </section>
 
       <div className="settlement-metric-grid">
@@ -830,6 +1122,287 @@ function HomeScreen({
   );
 }
 
+function ConversationCandidateForm({
+  candidate,
+  issueMessage,
+  onChange,
+  onIssue,
+}: {
+  candidate: ThoughtReceiptCandidate;
+  issueMessage: string;
+  onChange: (field: CandidateField, value: string) => void;
+  onIssue: () => void;
+}) {
+  return (
+    <div className="candidate-form">
+      <CandidateFieldControl
+        label="使用AI"
+        field="aiService"
+        value={candidate.aiService}
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="会話日時"
+        field="conversationDate"
+        value={candidate.conversationDate}
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="相談テーマ"
+        field="topic"
+        value={candidate.topic}
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="AIに求めた役割"
+        field="aiRole"
+        value={candidate.aiRole}
+        options={aiRoleOptions}
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="AIが足したこと"
+        field="aiAdded"
+        value={candidate.aiAdded}
+        multiline
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="自分で決めたこと"
+        field="selfDecision"
+        value={candidate.selfDecision}
+        multiline
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="会話後の気持ち"
+        field="feelingAfter"
+        value={candidate.feelingAfter}
+        options={feelingAfterOptions}
+        onChange={onChange}
+      />
+      <CandidateFieldControl
+        label="思考残高"
+        field="thinkingBalance"
+        value={candidate.thinkingBalance}
+        options={thinkingBalanceOptions}
+        onChange={onChange}
+      />
+      <button className="primary-action" type="button" onClick={onIssue}>
+        <ReceiptText size={18} />
+        レシートを発行する
+      </button>
+      {issueMessage && (
+        <div className="candidate-message issued" role="status">
+          <CheckCircle2 size={18} />
+          <p>{issueMessage}</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CandidateFieldControl({
+  label,
+  field,
+  value,
+  options,
+  multiline,
+  onChange,
+}: {
+  label: string;
+  field: CandidateField;
+  value: string;
+  options?: string[];
+  multiline?: boolean;
+  onChange: (field: CandidateField, value: string) => void;
+}) {
+  const id = `candidate-${field}`;
+
+  if (options) {
+    return (
+      <label className="candidate-field" htmlFor={id}>
+        <span>{label}</span>
+        <select
+          id={id}
+          value={value}
+          onChange={(event) => onChange(field, event.target.value)}
+        >
+          {options.map((option) => (
+            <option key={option} value={option}>
+              {option}
+            </option>
+          ))}
+        </select>
+      </label>
+    );
+  }
+
+  if (multiline) {
+    return (
+      <label className="candidate-field" htmlFor={id}>
+        <span>{label}</span>
+        <textarea
+          id={id}
+          value={value}
+          rows={3}
+          onChange={(event) => onChange(field, event.target.value)}
+        />
+      </label>
+    );
+  }
+
+  return (
+    <label className="candidate-field" htmlFor={id}>
+      <span>{label}</span>
+      <input
+        id={id}
+        type="text"
+        value={value}
+        onChange={(event) => onChange(field, event.target.value)}
+      />
+    </label>
+  );
+}
+
+function IssuedReceiptPanel({
+  receipt,
+  receiptUrl,
+  qrCodeUrl,
+  qrMessage,
+  ledgerMessage,
+  actionMessage,
+  onSave,
+  onPrint,
+  onCopyUrl,
+}: {
+  receipt: IssuedThinkingReceipt;
+  receiptUrl: string;
+  qrCodeUrl: string;
+  qrMessage: string;
+  ledgerMessage: string;
+  actionMessage: string;
+  onSave: () => void;
+  onPrint: () => void;
+  onCopyUrl: () => void;
+}) {
+  return (
+    <section className="issued-receipt-panel">
+      <div className="issued-receipt-header">
+        <span>発行済みレシート</span>
+        <strong>{receipt.receiptNo}</strong>
+      </div>
+      <div className="issued-receipt-body">
+        <ReceiptInfoRow label="使用AI" value={receipt.aiService} />
+        <ReceiptInfoRow label="会話日時" value={receipt.conversationDate} />
+        <ReceiptInfoRow label="相談テーマ" value={receipt.topic} />
+        <ReceiptInfoRow label="AIに求めた役割" value={receipt.aiRole} />
+        <ReceiptInfoRow label="AIが足したこと" value={receipt.aiAdded} />
+        <ReceiptInfoRow label="自分で決めたこと" value={receipt.selfDecision} />
+        <ReceiptInfoRow label="会話後の気持ち" value={receipt.feelingAfter} />
+        <ReceiptInfoRow label="思考残高" value={receipt.thinkingBalance} />
+        <ReceiptInfoRow label="発行日時" value={receipt.issuedAt} />
+      </div>
+
+      <div className="qr-panel">
+        {qrCodeUrl ? (
+          <img src={qrCodeUrl} alt="思考レシート復元用QRコード" />
+        ) : (
+          <div className="qr-placeholder">QRコード生成中</div>
+        )}
+        <p className="qr-description">
+          このQRを読み取ると、紙の思考レシートから同じ記録に戻ることができます。
+        </p>
+        {qrMessage && <p className="qr-error">{qrMessage}</p>}
+      </div>
+
+      {receiptUrl && (
+        <label className="receipt-url-field">
+          <span>復元URL</span>
+          <textarea readOnly rows={3} value={receiptUrl} />
+        </label>
+      )}
+
+      <p className="receipt-save-hint">
+        発行した思考レシートは、このまま思考帳簿に保存できます。
+      </p>
+      <button className="primary-action" type="button" onClick={onSave}>
+        <WalletCards size={18} />
+        帳簿に保存する
+      </button>
+      <div className="issued-receipt-actions">
+        <button className="secondary-action" type="button" onClick={onPrint}>
+          印刷する
+        </button>
+        <button className="secondary-action" type="button" onClick={onCopyUrl}>
+          共有URLをコピーする
+        </button>
+      </div>
+      {ledgerMessage && (
+        <div className="candidate-message issued" role="status">
+          <CheckCircle2 size={18} />
+          <p>{ledgerMessage}</p>
+        </div>
+      )}
+      {actionMessage && (
+        <div className="candidate-message" role="status">
+          <CheckCircle2 size={18} />
+          <p>{actionMessage}</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ReceiptInfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="receipt-info-row">
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
+function SavedLedgerList({ receipts }: { receipts: IssuedThinkingReceipt[] }) {
+  return (
+    <section className="saved-ledger-list">
+      <SectionTitle icon={<WalletCards size={18} />} title="保存済みレシート一覧" />
+      {receipts.length === 0 ? (
+        <p className="saved-ledger-empty">保存済みの思考レシートはまだありません。</p>
+      ) : (
+        <div className="saved-ledger-items">
+          {receipts.map((receipt) => (
+            <article className="saved-ledger-item" key={receipt.receiptNo}>
+              <div>
+                <span>{receipt.receiptNo}</span>
+                <strong>{receipt.topic}</strong>
+              </div>
+              <dl>
+                <div>
+                  <dt>issuedAt</dt>
+                  <dd>{receipt.issuedAt}</dd>
+                </div>
+                <div>
+                  <dt>aiService</dt>
+                  <dd>{receipt.aiService}</dd>
+                </div>
+                <div>
+                  <dt>aiRole</dt>
+                  <dd>{receipt.aiRole}</dd>
+                </div>
+                <div>
+                  <dt>thinkingBalance</dt>
+                  <dd>{receipt.thinkingBalance}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
 function AnalysisScreen({
   stats,
   onShowReceipts,
@@ -900,6 +1473,7 @@ function AnalysisScreen({
 
 function ReceiptsScreen({
   receipts,
+  thinkingLedger,
   filter,
   filterOrigin,
   highlightedReceiptId,
@@ -909,6 +1483,7 @@ function ReceiptsScreen({
   onOpenReceipt,
 }: {
   receipts: ThoughtReceipt[];
+  thinkingLedger: IssuedThinkingReceipt[];
   filter: ReceiptFilter | null;
   filterOrigin: TabKey | null;
   highlightedReceiptId: string | null;
@@ -927,6 +1502,8 @@ function ReceiptsScreen({
           <h2>家計簿のように、AIとの会話を振り返る</h2>
         </div>
       </div>
+
+      <SavedLedgerList receipts={thinkingLedger} />
 
       {filter && (
         <button className="back-link" type="button" onClick={onReturnFromFilter}>
@@ -1515,6 +2092,371 @@ function MoodInsight({ stats }: { stats: ReturnType<typeof buildStats> }) {
       </p>
     </div>
   );
+}
+
+function classifyConversation(raw: RawConversation): ThoughtReceiptCandidate {
+  const messages = Array.isArray(raw.messages)
+    ? raw.messages.filter((message) => typeof message.text === "string")
+    : [];
+  const userMessages = messages.filter((message) => message.role === "user");
+  const assistantMessages = messages.filter((message) => message.role === "assistant");
+  const allText = messages.map((message) => message.text ?? "").join(" ");
+  const assistantText = assistantMessages.map((message) => message.text ?? "").join(" ");
+  const selfDecision = inferSelfDecision(userMessages);
+
+  return {
+    aiService: inferAiService(raw),
+    conversationDate: compactText(raw.capturedAt) || formatCurrentConversationDate(),
+    topic:
+      compactText(raw.conversationTitle) ||
+      summarizeText(userMessages[0]?.text ?? "無題の相談", 30),
+    aiRole: inferAiRole(allText),
+    aiAdded: inferAiAdded(assistantText, allText),
+    selfDecision,
+    feelingAfter: inferFeelingAfter(allText, selfDecision),
+    thinkingBalance: inferThinkingBalance(userMessages.length, assistantMessages.length, selfDecision),
+  };
+}
+
+function inferAiService(raw: RawConversation) {
+  const service = compactText(raw.aiService);
+  if (service) return service;
+
+  const url = compactText(raw.url).toLowerCase();
+  if (url.includes("chatgpt.com")) return "ChatGPT";
+  if (url.includes("gemini.google.com")) return "Gemini";
+  if (url.includes("claude.ai")) return "Claude";
+  if (url.includes("perplexity.ai")) return "Perplexity";
+  if (url.includes("notebooklm.google.com")) return "NotebookLM";
+  if (url.includes("copilot.microsoft.com")) return "Copilot";
+  return "その他";
+}
+
+function inferAiRole(text: string) {
+  const lower = text.toLowerCase();
+  if (hasAny(lower, ["デザイン", "ファーストビュー", "ui", "ux", "コピー", "導線", "layout"])) {
+    return "デザイナー";
+  }
+  if (hasAny(lower, ["調査", "調べ", "リサーチ", "出典", "source", "research"])) {
+    return "調査役";
+  }
+  if (hasAny(lower, ["教えて", "説明", "学習", "先生", "lecture", "explain"])) {
+    return "先生";
+  }
+  if (hasAny(lower, ["編集", "校正", "文章", "言い換え", "rewrite", "edit"])) {
+    return "編集者";
+  }
+  if (hasAny(lower, ["不安", "気持ち", "悩み", "相談", "安心", "つらい"])) {
+    return "カウンセラー";
+  }
+  if (hasAny(lower, ["戦略", "方針", "優先", "意思決定", "判断", "計画"])) {
+    return "参謀";
+  }
+  if (hasAny(lower, ["一緒に", "相棒", "伴走", "ペア"])) {
+    return "相棒";
+  }
+  if (hasAny(lower, ["壁打ち", "案", "アイデア", "整理"])) {
+    return "壁打ち相手";
+  }
+  return "その他";
+}
+
+function inferAiAdded(assistantText: string, allText: string) {
+  const additions: string[] = [];
+  if (hasAny(assistantText, ["改善案", "案を", "提案"])) additions.push("改善案の提示");
+  if (assistantText.includes("コピー")) additions.push("コピーの整理");
+  if (assistantText.includes("導線")) additions.push("導線の整理");
+  if (assistantText.includes("目的")) additions.push("目的の明確化");
+  if (hasAny(allText, ["ファーストビュー", "デザイン改善"])) {
+    additions.push("ファーストビュー改善の視点");
+  }
+
+  const uniqueAdditions = Array.from(new Set(additions));
+  if (uniqueAdditions.length > 0) {
+    return `${uniqueAdditions.join("、")}を追加した`;
+  }
+
+  return summarizeText(assistantText, 64) || "AIが追加した視点はまだ整理されていません";
+}
+
+function inferSelfDecision(userMessages: ConversationMessage[]) {
+  const decisionKeywords = [
+    "決めた",
+    "決めます",
+    "採用",
+    "進めます",
+    "進める",
+    "変更する",
+    "変更します",
+    "優先",
+    "ベースに",
+  ];
+  const decision = [...userMessages]
+    .reverse()
+    .map((message) => compactText(message.text))
+    .find((text) => hasAny(text, decisionKeywords));
+
+  if (!decision) return "まだ明確な判断は記録されていません";
+  return normalizeDecisionText(decision);
+}
+
+function normalizeDecisionText(text: string) {
+  const normalized = text
+    .replace(/します。?$/, "する")
+    .replace(/進めます。?$/, "進める")
+    .replace(/採用します。?$/, "採用する")
+    .replace(/[。.!！?？]$/, "");
+
+  if (hasAny(normalized, ["決めた", "決めます", "ことにした"])) {
+    return normalized.replace("決めます", "決めた");
+  }
+  return `${normalized}ことに決めた`;
+}
+
+function inferFeelingAfter(allText: string, selfDecision: string) {
+  if (selfDecision !== "まだ明確な判断は記録されていません") {
+    return hasAny(allText, ["案", "視点", "改善", "提案"]) ? "考えが広がった" : "すっきりした";
+  }
+  if (hasAny(allText, ["不安", "安心", "大丈夫"])) return "安心した";
+  if (hasAny(allText, ["迷", "保留", "悩"])) return "まだ保留";
+  return "まだ保留";
+}
+
+function inferThinkingBalance(userCount: number, assistantCount: number, selfDecision: string) {
+  if (selfDecision === "まだ明確な判断は記録されていません") return "まだ保留";
+  if (userCount > 0 && assistantCount > 0) return "一緒に考えた";
+  if (assistantCount > userCount) return "AIの助けが多い";
+  return "自分の判断が多い";
+}
+
+function hasAny(text: string, keywords: string[]) {
+  return keywords.some((keyword) => text.includes(keyword));
+}
+
+function summarizeText(text: string, maxLength: number) {
+  const compacted = compactText(text);
+  if (compacted.length <= maxLength) return compacted;
+  return `${compacted.slice(0, maxLength)}…`;
+}
+
+function compactText(text?: string) {
+  return typeof text === "string" ? text.replace(/\s+/g, " ").trim() : "";
+}
+
+function formatCurrentConversationDate() {
+  const now = new Date();
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}/${pad(now.getMonth() + 1)}/${pad(now.getDate())} ${pad(
+    now.getHours(),
+  )}:${pad(now.getMinutes())}`;
+}
+
+function createIssuedReceipt(candidate: ThoughtReceiptCandidate): IssuedThinkingReceipt {
+  return {
+    ...candidate,
+    receiptNo: `TR-${Date.now().toString(36).toUpperCase()}`,
+    issuedAt: formatCurrentConversationDate(),
+  };
+}
+
+function toReceiptCandidate(receipt: IssuedThinkingReceipt): ThoughtReceiptCandidate {
+  return {
+    aiService: receipt.aiService,
+    conversationDate: receipt.conversationDate,
+    topic: receipt.topic,
+    aiRole: receipt.aiRole,
+    aiAdded: receipt.aiAdded,
+    selfDecision: receipt.selfDecision,
+    feelingAfter: receipt.feelingAfter,
+    thinkingBalance: receipt.thinkingBalance,
+  };
+}
+
+function createReceiptUrl(receipt: IssuedThinkingReceipt) {
+  if (typeof window === "undefined") return "";
+  const payload = encodeReceiptPayload(receipt);
+  return `${window.location.origin}${window.location.pathname}#${RECEIPT_HASH_KEY}=${payload}`;
+}
+
+function clearDraftQueryParam() {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has(DRAFT_QUERY_KEY)) return;
+  url.searchParams.delete(DRAFT_QUERY_KEY);
+  const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+  window.history.replaceState({}, "", nextUrl);
+}
+
+function restoreDraftConversationFromUrl() {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const draft = params.get(DRAFT_QUERY_KEY);
+  if (!draft) return null;
+
+  return parseDraftConversation(draft);
+}
+
+function parseDraftConversation(draft: string) {
+  const candidates = Array.from(
+    new Set([
+      draft,
+      safeDecodeURIComponent(draft),
+      decodeBase64UrlUtf8(draft),
+    ].filter((value): value is string => Boolean(value))),
+  );
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as RawConversation;
+      if (isRawConversation(parsed)) return parsed;
+    } catch {
+      // 次のデコード候補を試します。
+    }
+  }
+
+  return null;
+}
+
+function safeDecodeURIComponent(value: string) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return null;
+  }
+}
+
+function decodeBase64UrlUtf8(value: string) {
+  try {
+    const base64 = value.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+    const binary = window.atob(padded);
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+    return new TextDecoder().decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+function isRawConversation(value: unknown): value is RawConversation {
+  if (!value || typeof value !== "object") return false;
+  const conversation = value as RawConversation;
+  return (
+    (conversation.messages === undefined || Array.isArray(conversation.messages)) &&
+    (conversation.aiService === undefined || typeof conversation.aiService === "string") &&
+    (conversation.url === undefined || typeof conversation.url === "string") &&
+    (conversation.capturedAt === undefined || typeof conversation.capturedAt === "string") &&
+    (conversation.conversationTitle === undefined ||
+      typeof conversation.conversationTitle === "string")
+  );
+}
+
+function restoreReceiptFromUrl() {
+  if (typeof window === "undefined") return null;
+  const hash = window.location.hash.replace(/^#/, "");
+  const params = new URLSearchParams(hash);
+  const payload = params.get(RECEIPT_HASH_KEY);
+  if (!payload) return null;
+
+  try {
+    const parsed = JSON.parse(decodeReceiptPayload(payload)) as IssuedThinkingReceipt;
+    return normalizeIssuedReceipt(parsed);
+  } catch {
+    return null;
+  }
+}
+
+function encodeReceiptPayload(receipt: IssuedThinkingReceipt) {
+  const bytes = new TextEncoder().encode(JSON.stringify(receipt));
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window
+    .btoa(binary)
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
+function decodeReceiptPayload(payload: string) {
+  const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
+  const padded = base64.padEnd(Math.ceil(base64.length / 4) * 4, "=");
+  const binary = window.atob(padded);
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
+function loadThinkingLedger() {
+  try {
+    const stored = localStorage.getItem(THINKING_LEDGER_KEY);
+    if (!stored) return [];
+    const parsed = JSON.parse(stored) as IssuedThinkingReceipt[];
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .map(normalizeIssuedReceipt)
+      .filter((receipt): receipt is IssuedThinkingReceipt => Boolean(receipt));
+  } catch {
+    return [];
+  }
+}
+
+function isIssuedReceipt(receipt: unknown): receipt is IssuedThinkingReceipt {
+  return Boolean(normalizeIssuedReceipt(receipt));
+}
+
+function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null {
+  if (!receipt || typeof receipt !== "object") return null;
+  const target = receipt as Record<string, unknown>;
+  const receiptNo = target.receiptNo ?? target.id;
+  const requiredFields = [
+    "issuedAt",
+    "aiService",
+    "conversationDate",
+    "topic",
+    "aiRole",
+    "aiAdded",
+    "selfDecision",
+    "feelingAfter",
+    "thinkingBalance",
+  ];
+  const isValid =
+    typeof receiptNo === "string" &&
+    requiredFields.every((key) => typeof target[key] === "string");
+
+  if (!isValid) return null;
+
+  return {
+    receiptNo,
+    issuedAt: target.issuedAt,
+    aiService: target.aiService,
+    conversationDate: target.conversationDate,
+    topic: target.topic,
+    aiRole: target.aiRole,
+    aiAdded: target.aiAdded,
+    selfDecision: target.selfDecision,
+    feelingAfter: target.feelingAfter,
+    thinkingBalance: target.thinkingBalance,
+  } as IssuedThinkingReceipt;
+}
+
+function buildLedgerStats(data: IssuedThinkingReceipt[]) {
+  return {
+    count: data.length,
+    topService: topLedgerCountLabel(data.map((receipt) => receipt.aiService)),
+    topRole: topLedgerCountLabel(data.map((receipt) => receipt.aiRole)),
+    topBalance: topLedgerCountLabel(data.map((receipt) => receipt.thinkingBalance)),
+  };
+}
+
+function topLedgerCountLabel(values: string[]) {
+  const counts = values.reduce<Record<string, number>>((acc, value) => {
+    const label = value || "-";
+    acc[label] = (acc[label] ?? 0) + 1;
+    return acc;
+  }, {});
+
+  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
 }
 
 function buildSettlementStats(data: ThoughtReceipt[]) {

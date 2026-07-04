@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-type TabKey = "home" | "analysis" | "receipts";
+type TabKey = "home" | "receipts" | "analysis" | "tax";
 
 type ThoughtReceipt = {
   id: string;
@@ -109,6 +109,72 @@ const thinkingBalanceOptions = [
   "AIの助けが多い",
   "一緒に考えた",
   "まだ保留",
+];
+
+const emptyLedgerMessage =
+  "まだ保存された思考レシートがありません。レシートを発行して帳簿に保存すると、ここに記録が表示されます。";
+
+const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
+  {
+    receiptNo: "TR-SAMPLE-001",
+    issuedAt: "2026/07/04 10:10",
+    aiService: "ChatGPT",
+    conversationDate: "2026/07/04 09:40",
+    topic: "作品コンセプトの壁打ち",
+    aiRole: "壁打ち相手",
+    aiAdded: "体験の流れ、展示で伝える一文、サービス名の見え方を整理した",
+    selfDecision: "AIとの会話をレシート化して振り返る体験を作品の中心に置くことに決めた",
+    feelingAfter: "考えが広がった",
+    thinkingBalance: "一緒に考えた",
+  },
+  {
+    receiptNo: "TR-SAMPLE-002",
+    issuedAt: "2026/07/04 11:25",
+    aiService: "Claude",
+    conversationDate: "2026/07/04 10:55",
+    topic: "審査資料の文章構成",
+    aiRole: "編集者",
+    aiAdded: "見出しの順番、説明量の調整、審査員に伝わる要約を追加した",
+    selfDecision: "最初にサービスの流れを示し、その後に技術構成を説明することに決めた",
+    feelingAfter: "すっきりした",
+    thinkingBalance: "自分の判断が多い",
+  },
+  {
+    receiptNo: "TR-SAMPLE-003",
+    issuedAt: "2026/07/03 16:40",
+    aiService: "Perplexity",
+    conversationDate: "2026/07/03 16:05",
+    topic: "関連事例の調査",
+    aiRole: "調査役",
+    aiAdded: "AIログ、セルフリフレクション、データポータビリティの関連事例を比較した",
+    selfDecision: "単なる履歴保存ではなく、自分の判断を残す帳簿として見せることに決めた",
+    feelingAfter: "安心した",
+    thinkingBalance: "AIの助けが多い",
+  },
+  {
+    receiptNo: "TR-SAMPLE-004",
+    issuedAt: "2026/07/03 21:15",
+    aiService: "Gemini",
+    conversationDate: "2026/07/03 20:50",
+    topic: "展示体験のアイデア出し",
+    aiRole: "相棒",
+    aiAdded: "レシートプリンター、QR復元、月次決算の見せ方を提案した",
+    selfDecision: "A3ポスターではレシート発行から確定申告までの流れを一枚で見せることに決めた",
+    feelingAfter: "考えが広がった",
+    thinkingBalance: "一緒に考えた",
+  },
+  {
+    receiptNo: "TR-SAMPLE-005",
+    issuedAt: "2026/07/02 18:20",
+    aiService: "NotebookLM",
+    conversationDate: "2026/07/02 17:45",
+    topic: "資料整理と要点抽出",
+    aiRole: "先生",
+    aiAdded: "既存メモから重要な論点と未整理の問いを抽出した",
+    selfDecision: "発表では技術説明よりも、AIとの関係を記録する価値を先に伝えることに決めた",
+    feelingAfter: "すっきりした",
+    thinkingBalance: "自分の判断が多い",
+  },
 ];
 
 const initialReceipts: ThoughtReceipt[] = [
@@ -317,9 +383,10 @@ const moodFlow = [
 ];
 
 const tabLabels: Record<TabKey, string> = {
-  home: "ホーム",
-  analysis: "分析",
-  receipts: "レシート",
+  home: "思考レシート",
+  receipts: "思考帳簿",
+  analysis: "月次決算",
+  tax: "確定申告",
 };
 
 type ReaderStep = "closed" | "scan" | "confirm";
@@ -385,7 +452,6 @@ function App() {
   const [thinkingLedger, setThinkingLedger] =
     useState<IssuedThinkingReceipt[]>(loadThinkingLedger);
   const stats = useMemo(() => buildStats(receiptData), [receiptData]);
-  const settlementStats = useMemo(() => buildSettlementStats(receiptData), [receiptData]);
 
   useEffect(() => {
     try {
@@ -578,7 +644,8 @@ function App() {
   }
 
   function openSettlement() {
-    setIsSettlementOpen(true);
+    setIsSettlementOpen(false);
+    setActiveTab("tax");
     setSaveMessage("");
     setAnalysisFocus(null);
     scrollScreenToTop("auto");
@@ -677,6 +744,22 @@ function App() {
     }
   }
 
+  function addSampleLedgerData() {
+    try {
+      const current = loadThinkingLedger();
+      const receiptNos = new Set(current.map((receipt) => receipt.receiptNo));
+      const samplesToAdd = sampleThinkingLedgerReceipts.filter(
+        (receipt) => !receiptNos.has(receipt.receiptNo),
+      );
+      const updatedLedger = [...samplesToAdd, ...current];
+      localStorage.setItem(THINKING_LEDGER_KEY, JSON.stringify(updatedLedger));
+      setThinkingLedger(updatedLedger);
+      showToast("開発確認用のサンプル帳簿データを追加しました。");
+    } catch {
+      showToast("サンプル帳簿データを追加できませんでした。");
+    }
+  }
+
   function printIssuedReceipt() {
     window.print();
   }
@@ -695,36 +778,48 @@ function App() {
   return (
     <div className="app-shell">
       <main className="phone-frame">
-        <Header onOpenSettlement={openSettlement} />
+        <Header />
         <div className="screen" ref={screenRef}>
           {!isSettlementOpen && activeTab === "home" && !issuedReceipt && (
-            <section className="extension-import-card extension-import-card-top">
-              <button
-                className="extension-import-button"
-                type="button"
-                onClick={loadExtensionConversation}
-              >
-                <ScanLine size={18} />
-                拡張機能データを読み込む
-              </button>
-              {conversationMessage && (
-                <div className="candidate-message" role="status">
-                  <CheckCircle2 size={18} />
-                  <p>{conversationMessage}</p>
+            <>
+              <section className="product-hero">
+                <p className="eyebrow light">思考レシート</p>
+                <h2>私とAIの確定申告</h2>
+                <p>AIとの会話を読み込み、思考レシートとして発行します。</p>
+              </section>
+
+              <section className="extension-import-card extension-import-card-top">
+                <div className="import-card-heading">
+                  <strong>会話データを読み込む</strong>
+                  <p>自動仕分けした候補は、発行前に確認・修正できます。</p>
                 </div>
-              )}
-              {conversationCandidate && (
-                <ConversationCandidateForm
-                  candidate={conversationCandidate}
-                  issueMessage={candidateIssueMessage}
-                  onChange={updateConversationCandidate}
-                  onIssue={issueConversationCandidate}
-                />
-              )}
-            </section>
+                <button
+                  className="extension-import-button"
+                  type="button"
+                  onClick={loadExtensionConversation}
+                >
+                  <ScanLine size={18} />
+                  拡張機能データを読み込む
+                </button>
+                {conversationMessage && (
+                  <div className="candidate-message" role="status">
+                    <CheckCircle2 size={18} />
+                    <p>{conversationMessage}</p>
+                  </div>
+                )}
+                {conversationCandidate && (
+                  <ConversationCandidateForm
+                    candidate={conversationCandidate}
+                    issueMessage={candidateIssueMessage}
+                    onChange={updateConversationCandidate}
+                    onIssue={issueConversationCandidate}
+                  />
+                )}
+              </section>
+            </>
           )}
           {!isSettlementOpen && activeTab === "home" && issuedReceipt && (
-            <section className="extension-import-card extension-import-card-top">
+            <section className="extension-import-card extension-import-card-top print-receipt-host">
               <IssuedReceiptPanel
                 receipt={issuedReceipt}
                 receiptUrl={receiptUrl}
@@ -738,25 +833,18 @@ function App() {
                 />
             </section>
           )}
-          {isSettlementOpen && (
+          {!isSettlementOpen && activeTab === "tax" && (
             <ThoughtSettlementScreen
-              stats={settlementStats}
               ledgerReceipts={thinkingLedger}
               onBackHome={closeSettlement}
-            />
-          )}
-          {!isSettlementOpen && activeTab === "home" && (
-            <HomeScreen
-              stats={stats}
-              receipts={receiptData}
-              onShowAnalysis={showAnalysis}
-              onShowReceipts={showReceipts}
-              onStartReader={openReader}
-              onOpenReceipt={setSelectedReceipt}
+              onAddSamples={addSampleLedgerData}
             />
           )}
           {!isSettlementOpen && activeTab === "analysis" && (
-            <AnalysisScreen stats={stats} onShowReceipts={showReceipts} />
+            <AnalysisScreen
+              ledgerReceipts={thinkingLedger}
+              onAddSamples={addSampleLedgerData}
+            />
           )}
           {!isSettlementOpen && activeTab === "receipts" && (
             <ReceiptsScreen
@@ -769,6 +857,7 @@ function App() {
               onClearFilter={clearReceiptFilter}
               onReturnFromFilter={returnFromFilter}
               onOpenReceipt={setSelectedReceipt}
+              onAddSamples={addSampleLedgerData}
             />
           )}
         </div>
@@ -788,21 +877,13 @@ function App() {
   );
 }
 
-function Header({ onOpenSettlement }: { onOpenSettlement: () => void }) {
+function Header() {
   return (
     <header className="top-header">
       <div>
         <p className="eyebrow">思考帳簿アプリ</p>
         <h1>私とAIの確定申告</h1>
       </div>
-      <button
-        className="icon-button"
-        type="button"
-        aria-label="6月の思考決算を開く"
-        onClick={onOpenSettlement}
-      >
-        <BookOpenText size={20} />
-      </button>
     </header>
   );
 }
@@ -819,110 +900,59 @@ function ToastMessage({ message }: { message: string }) {
 }
 
 function ThoughtSettlementScreen({
-  stats,
   ledgerReceipts,
-  onBackHome,
+  onAddSamples,
 }: {
-  stats: ReturnType<typeof buildSettlementStats>;
   ledgerReceipts: IssuedThinkingReceipt[];
   onBackHome: () => void;
+  onAddSamples: () => void;
 }) {
-  const [isPreviousOpen, setIsPreviousOpen] = useState(false);
   const ledgerStats = buildLedgerStats(ledgerReceipts);
-
-  function closePreviousSettlement() {
-    setIsPreviousOpen(false);
-    resetPageScroll("auto");
-  }
+  const examples = ledgerStats.decisions.slice(0, 3);
 
   return (
     <section className="stack settlement-screen">
-      <button className="back-link" type="button" onClick={onBackHome}>
-        <ArrowLeft size={16} />
-        ホームに戻る
-      </button>
-
       <section className="settlement-hero">
         <div>
-          <p className="eyebrow light">思考決算</p>
-          <h2>6月の思考決算</h2>
-          <span className="status-pill">作成中</span>
+          <p className="eyebrow light">1年分のまとめ</p>
+          <h2>私とAIの確定申告</h2>
+          <span className="status-pill">{ledgerStats.count}件の思考レシート</span>
         </div>
-        <p>
-          思考レシートが追加されるたびに、今月の振り返りが更新されます。
-        </p>
+        <p>蓄積した記録から、自分とAIの関係を見つめ直します。</p>
       </section>
 
-      <section className="settlement-paper-card">
-        <SectionTitle icon={<BookOpenText size={18} />} title="今月のまとめコメント" />
-        <p className="settlement-summary">{stats.summary}</p>
-      </section>
+      {ledgerReceipts.length === 0 ? (
+        <LedgerEmptyState onAddSamples={onAddSamples} />
+      ) : (
+        <>
+          <section className="annual-report-card annual-report-card-primary">
+            <SectionTitle icon={<BookOpenText size={18} />} title="AIとの関係コメント" />
+            <p className="annual-report-comment">{ledgerStats.relationshipComment}</p>
+          </section>
 
-      <section className="settlement-paper-card">
-        <SectionTitle icon={<WalletCards size={18} />} title="思考帳簿の保存データ" />
-        <div className="settlement-metric-grid">
-          <SettlementMetric label="保存済みレシート" value={`${ledgerStats.count}件`} />
-          <SettlementMetric label="よく使ったAI" value={ledgerStats.topService} />
-          <SettlementMetric label="多いAI役割" value={ledgerStats.topRole} />
-          <SettlementMetric label="多い思考残高" value={ledgerStats.topBalance} />
-        </div>
-      </section>
+          <section className="annual-report-card">
+            <SectionTitle icon={<BarChart3 size={18} />} title="年次申告項目" />
+            <div className="annual-report-grid">
+              <SettlementMetric label="総レシート数" value={`${ledgerStats.count}件`} />
+              <SettlementMetric label="もっとも使ったAI" value={ledgerStats.topService} />
+              <SettlementMetric label="もっとも多かったAIの役割" value={ledgerStats.topRole} />
+              <SettlementMetric label="思考残高の傾向" value={ledgerStats.topBalance} />
+            </div>
+          </section>
 
-      <div className="settlement-metric-grid">
-        <SettlementMetric label="AIスクリーンタイム" value={formatHours(stats.totalMinutes)} />
-        <SettlementMetric label="思考レシート" value={`${stats.receiptCount}枚`} />
-        <SettlementMetric label="主要相談科目" value={stats.topCategory} />
-        <SettlementMetric label="よく求めた役割" value={stats.topRole} />
-      </div>
-
-      <section className="settlement-paper-card">
-        <SectionTitle icon={<WalletCards size={18} />} title="自分に残ったもの" />
-        <div className="settlement-balance-list">
-          <SettlementBalance
-            title="自己判断残高"
-            body={`自分の言葉で判断や気づきを残せたレシート：${stats.selfDecisionCount}件`}
-          />
-          <SettlementBalance
-            title="思考収入"
-            body={`AIとの会話から得たもの：${stats.gainedSummary}`}
-          />
-          <SettlementBalance
-            title="気持ちの変化"
-            body={`不安や迷いが、納得や見通しにつながったレシート：${stats.reframedMoodCount}件`}
-          />
-        </div>
-        <div className="settlement-barcode" aria-hidden="true" />
-      </section>
-
-      <section className="settlement-paper-card">
-        <SectionTitle icon={<ReceiptText size={18} />} title="先月の完成版サンプル" />
-        <p className="settlement-muted">
-          完成済みの思考決算書では、月の終わりにAIとの関わり方と自分に残った判断をまとめます。
-        </p>
-        <button
-          className="settlement-link-button"
-          type="button"
-          onClick={() => setIsPreviousOpen(true)}
-        >
-          5月の思考決算書を見る
-          <ChevronRight size={17} />
-        </button>
-      </section>
-
-      <section className="settlement-year-card">
-        <p className="eyebrow">年間のまとめへ</p>
-        <h3>年末には「私とAIの確定申告」へ</h3>
-        <p>
-          月ごとの思考決算がたまると、年末に「2026年 私とAIの確定申告」としてまとめられます。
-        </p>
-      </section>
-
-      <button className="secondary-action" type="button" onClick={onBackHome}>
-        ホームに戻る
-      </button>
-
-      {isPreviousOpen && (
-        <PreviousSettlementModal onClose={closePreviousSettlement} />
+          <section className="settlement-paper-card">
+            <SectionTitle icon={<CheckCircle2 size={18} />} title="自分で決めたことの代表例" />
+            <div className="ledger-detail-list">
+              {examples.length > 0 ? (
+                examples.map((decision) => (
+                  <p key={decision}>{decision}</p>
+                ))
+              ) : (
+                <p>まだ明確な判断は記録されていません</p>
+              )}
+            </div>
+          </section>
+        </>
       )}
     </section>
   );
@@ -1004,12 +1034,9 @@ function PreviousSettlementModal({ onClose }: { onClose: () => void }) {
 }
 
 function HomeScreen({
-  stats,
-  receipts,
   onShowAnalysis,
   onShowReceipts,
   onStartReader,
-  onOpenReceipt,
 }: {
   stats: ReturnType<typeof buildStats>;
   receipts: ThoughtReceipt[];
@@ -1018,29 +1045,33 @@ function HomeScreen({
   onStartReader: () => void;
   onOpenReceipt: (receipt: ThoughtReceipt) => void;
 }) {
-  const latestReceipt = receipts[0];
-
   return (
-    <section className="stack">
-      <div className="hero-ledger">
-        <div className="hero-copy">
-          <p className="eyebrow light">2026年6月</p>
-          <h2>今月は、企画・制作の場面でAIとの距離が近めでした。</h2>
-          <p>
-            AIに整理を頼る一方で、最後の判断は自分の言葉で残せています。
-          </p>
+    <section className="stack service-overview">
+      <section className="service-flow-card">
+        <SectionTitle icon={<Sparkles size={18} />} title="サービスの流れ" />
+        <div className="service-flow-steps">
+          <div>
+            <span>01</span>
+            <strong>会話を読み込む</strong>
+            <p>Chrome拡張機能からAI会話データを受け取ります。</p>
+          </div>
+          <div>
+            <span>02</span>
+            <strong>レシートを発行</strong>
+            <p>AIが足したことと、自分で決めたことを確認します。</p>
+          </div>
+          <div>
+            <span>03</span>
+            <strong>帳簿に保存</strong>
+            <p>保存済みレシートからAIとの関係が見えるようになります。</p>
+          </div>
+          <div>
+            <span>04</span>
+            <strong>決算する</strong>
+            <p>月次決算と確定申告で、自分とAIの関係を振り返ります。</p>
+          </div>
         </div>
-        <button
-          className="hero-total pressable-surface"
-          type="button"
-          onClick={() => onShowAnalysis("analysis-screen-time")}
-        >
-          <Clock3 size={18} />
-          <span>{formatHours(stats.totalMinutes)}</span>
-          <small>AIスクリーンタイム</small>
-          <em className="tap-hint hero-hint">見る</em>
-        </button>
-      </div>
+      </section>
 
       <button
         className="home-reader-card pressable-surface"
@@ -1051,73 +1082,28 @@ function HomeScreen({
           <Plus size={21} />
         </span>
         <span className="home-reader-copy">
-          <strong>思考レシートを読み取る</strong>
-          <small>AIとの会話を、思考帳簿に追加します。</small>
+          <strong>紙のQRからレシートを復元</strong>
+          <small>印刷した思考レシートから同じ記録に戻れます。</small>
         </span>
         <ChevronRight size={20} />
       </button>
 
       <div className="metric-grid">
         <MetricCard
-          icon={<ReceiptText size={18} />}
-          label="思考レシート"
-          value={`${stats.receiptCount}枚`}
+          icon={<WalletCards size={18} />}
+          label="保存後の行き先"
+          value="思考帳簿"
           tone="blue"
           onClick={() => onShowReceipts(null)}
         />
         <MetricCard
-          icon={<Coins size={18} />}
-          label="今日の思考残高"
-          value="納得 +3"
+          icon={<CalendarDays size={18} />}
+          label="今月の振り返り"
+          value="月次決算"
           tone="sky"
-          onClick={() => latestReceipt && onOpenReceipt(latestReceipt)}
+          onClick={() => onShowAnalysis()}
         />
       </div>
-
-      <section className="card">
-        <SectionTitle icon={<WalletCards size={18} />} title="今月のまとめ" />
-        <div className="summary-list">
-          <SummaryRow
-            label="よく相談した科目"
-            value={stats.topCategory}
-            onClick={() =>
-              onShowReceipts({ type: "category", value: stats.topCategory })
-            }
-          />
-          <SummaryRow
-            label="AIに求めた役割"
-            value={stats.topRole}
-            onClick={() => onShowReceipts({ type: "role", value: stats.topRole })}
-          />
-          <SummaryRow label="AIとの距離感" value="近め / ほどよい中心" />
-          <SummaryRow
-            label="自己判断残高"
-            value={`${stats.selfDecisionCount}件 記録`}
-            onClick={() => onShowReceipts({ type: "selfDecision" })}
-          />
-        </div>
-      </section>
-
-      <section className="card soft-blue">
-        <SectionTitle icon={<Sparkles size={18} />} title="今月の振り返り" />
-        <p className="reflection">
-          今週は、気持ちを整えるためにAIを使う場面もありました。相談後の
-          「自分で決めたこと」が残っているので、思考の流れをあとから見返せます。
-        </p>
-      </section>
-
-      <section className="section-block">
-        <SectionTitle icon={<NotebookTabs size={18} />} title="最近の思考レシート" />
-        <div className="recent-list">
-          {receipts.slice(0, 3).map((receipt) => (
-            <MiniReceipt
-              key={receipt.id}
-              receipt={receipt}
-              onClick={() => onOpenReceipt(receipt)}
-            />
-          ))}
-        </div>
-      </section>
     </section>
   );
 }
@@ -1135,6 +1121,11 @@ function ConversationCandidateForm({
 }) {
   return (
     <div className="candidate-form">
+      <div className="candidate-form-heading">
+        <span>STEP 2</span>
+        <strong>自動仕分け結果を確認・修正</strong>
+        <p>AIの評価ではなく、自分とAIの関係を記録するための下書きです。</p>
+      </div>
       <CandidateFieldControl
         label="使用AI"
         field="aiService"
@@ -1288,8 +1279,9 @@ function IssuedReceiptPanel({
 }) {
   return (
     <section className="issued-receipt-panel">
+      <h2 className="receipt-print-title">思考レシート</h2>
       <div className="issued-receipt-header">
-        <span>発行済みレシート</span>
+        <span>発行済み思考レシート</span>
         <strong>{receipt.receiptNo}</strong>
       </div>
       <div className="issued-receipt-body">
@@ -1315,13 +1307,7 @@ function IssuedReceiptPanel({
         </p>
         {qrMessage && <p className="qr-error">{qrMessage}</p>}
       </div>
-
-      {receiptUrl && (
-        <label className="receipt-url-field">
-          <span>復元URL</span>
-          <textarea readOnly rows={3} value={receiptUrl} />
-        </label>
-      )}
+      <p className="receipt-print-tagline">考えたあとに、レシートが出る。</p>
 
       <p className="receipt-save-hint">
         発行した思考レシートは、このまま思考帳簿に保存できます。
@@ -1363,39 +1349,40 @@ function ReceiptInfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function SavedLedgerList({ receipts }: { receipts: IssuedThinkingReceipt[] }) {
+function LedgerEmptyState({ onAddSamples }: { onAddSamples: () => void }) {
   return (
-    <section className="saved-ledger-list">
-      <SectionTitle icon={<WalletCards size={18} />} title="保存済みレシート一覧" />
-      {receipts.length === 0 ? (
-        <p className="saved-ledger-empty">保存済みの思考レシートはまだありません。</p>
+    <section className="ledger-empty-state">
+      <p>{emptyLedgerMessage}</p>
+      <details className="dev-tools">
+        <summary>開発用</summary>
+        <button className="secondary-action" type="button" onClick={onAddSamples}>
+          サンプル帳簿データを追加
+        </button>
+        <small>thinkingLedger に複数件のサンプルを保存します。</small>
+      </details>
+    </section>
+  );
+}
+
+function LedgerBreakdown({
+  title,
+  items,
+}: {
+  title: string;
+  items: Array<{ label: string; count: number }>;
+}) {
+  return (
+    <section className="ledger-breakdown-card">
+      <h4>{title}</h4>
+      {items.length === 0 ? (
+        <p>-</p>
       ) : (
-        <div className="saved-ledger-items">
-          {receipts.map((receipt) => (
-            <article className="saved-ledger-item" key={receipt.receiptNo}>
-              <div>
-                <span>{receipt.receiptNo}</span>
-                <strong>{receipt.topic}</strong>
-              </div>
-              <dl>
-                <div>
-                  <dt>issuedAt</dt>
-                  <dd>{receipt.issuedAt}</dd>
-                </div>
-                <div>
-                  <dt>aiService</dt>
-                  <dd>{receipt.aiService}</dd>
-                </div>
-                <div>
-                  <dt>aiRole</dt>
-                  <dd>{receipt.aiRole}</dd>
-                </div>
-                <div>
-                  <dt>thinkingBalance</dt>
-                  <dd>{receipt.thinkingBalance}</dd>
-                </div>
-              </dl>
-            </article>
+        <div className="ledger-breakdown-list">
+          {items.map((item) => (
+            <div className="ledger-breakdown-row" key={item.label}>
+              <span>{item.label}</span>
+              <strong>{item.count}件</strong>
+            </div>
           ))}
         </div>
       )}
@@ -1403,84 +1390,175 @@ function SavedLedgerList({ receipts }: { receipts: IssuedThinkingReceipt[] }) {
   );
 }
 
-function AnalysisScreen({
-  stats,
-  onShowReceipts,
+function LedgerReceiptDetail({
+  receipt,
+  onClose,
 }: {
-  stats: ReturnType<typeof buildStats>;
-  onShowReceipts: (filter: ReceiptFilter) => void;
+  receipt: IssuedThinkingReceipt;
+  onClose: () => void;
 }) {
   return (
-    <section className="stack">
-      <div className="analysis-header">
-        <div>
-          <p className="eyebrow">思考レシート集計</p>
-          <h2>AIとの会話が、どんな場面で増えたかを見る</h2>
-        </div>
+    <section className="ledger-detail-card">
+      <SectionTitle icon={<ReceiptText size={18} />} title="レシート詳細" />
+      <div className="ledger-detail-list">
+        <ConfirmRow label="receiptNo" value={receipt.receiptNo} />
+        <ConfirmRow label="issuedAt" value={receipt.issuedAt} />
+        <ConfirmRow label="使用AI" value={receipt.aiService} />
+        <ConfirmRow label="会話日時" value={receipt.conversationDate} />
+        <ConfirmRow label="相談テーマ" value={receipt.topic} />
+        <ConfirmRow label="AIに求めた役割" value={receipt.aiRole} />
+        <ConfirmRow label="AIが足したこと" value={receipt.aiAdded} />
+        <ConfirmRow label="自分で決めたこと" value={receipt.selfDecision} />
+        <ConfirmRow label="会話後の気持ち" value={receipt.feelingAfter} />
+        <ConfirmRow label="思考残高" value={receipt.thinkingBalance} />
       </div>
-
-      <section className="card">
-        <SectionTitle icon={<BarChart3 size={18} />} title="相談科目別の割合" />
-        <DonutChart
-          data={stats.categoryShare}
-          onSelect={(value) => onShowReceipts({ type: "category", value })}
-        />
-      </section>
-
-      <section className="card">
-        <SectionTitle icon={<Bot size={18} />} title="AIに求めた役割" />
-        <HorizontalBars
-          data={stats.roleShare}
-          onSelect={(value) => onShowReceipts({ type: "role", value })}
-        />
-      </section>
-
-      <section className="card" id="analysis-screen-time">
-        <SectionTitle icon={<Clock3 size={18} />} title="月別AIスクリーンタイム" />
-        <MonthlyBars data={stats.monthlyScreenTime} />
-      </section>
-
-      <button
-        className="card analysis-action-card"
-        type="button"
-        onClick={() => onShowReceipts({ type: "moodChange" })}
-      >
-        <SectionTitle icon={<LineChart size={18} />} title="気持ちの変化" />
-        <span className="card-action-hint">関連レシートを見る</span>
-        <LineGraph data={moodFlow} />
-        <MoodInsight stats={stats} />
-      </button>
-
-      <button
-        className="card balance-card analysis-action-card"
-        type="button"
-        onClick={() => onShowReceipts({ type: "selfDecision" })}
-      >
-        <SectionTitle icon={<CheckCircle2 size={18} />} title="自己判断残高" />
-        <span className="card-action-hint">関連レシートを見る</span>
-        <div className="balance-display">
-          <strong>{stats.selfDecisionCount}</strong>
-          <span>件</span>
-        </div>
-        <p>
-          AIから受け取ったヒントを、そのまま終わらせずに自分の判断として
-          残せたレシート数です。
-        </p>
+      <button className="secondary-action compact-action" type="button" onClick={onClose}>
+        詳細を閉じる
       </button>
     </section>
   );
 }
 
-function ReceiptsScreen({
+function SavedLedgerList({
   receipts,
+  onAddSamples,
+}: {
+  receipts: IssuedThinkingReceipt[];
+  onAddSamples: () => void;
+}) {
+  const [selectedReceiptNo, setSelectedReceiptNo] = useState<string | null>(null);
+  const stats = buildLedgerStats(receipts);
+  const selectedReceipt =
+    receipts.find((receipt) => receipt.receiptNo === selectedReceiptNo) ?? null;
+
+  return (
+    <section className="saved-ledger-list">
+      <SectionTitle icon={<WalletCards size={18} />} title="帳簿の概要" />
+      <p className="screen-purpose">保存した思考レシートを一覧で確認できます。</p>
+      {receipts.length === 0 ? (
+        <LedgerEmptyState onAddSamples={onAddSamples} />
+      ) : (
+        <>
+          <div className="ledger-summary-grid">
+            <SettlementMetric label="保存済みレシート数" value={`${stats.count}件`} />
+            <SettlementMetric label="よく使ったAI" value={stats.topService} />
+            <SettlementMetric label="よく使った役割" value={stats.topRole} />
+          </div>
+
+          <section className="saved-ledger-section">
+            <h4>保存済みレシート一覧</h4>
+            <div className="saved-ledger-items">
+              {receipts.map((receipt) => (
+                <article className="saved-ledger-item" key={receipt.receiptNo}>
+                  <div>
+                    <span>{receipt.receiptNo}</span>
+                    <strong>{receipt.topic}</strong>
+                  </div>
+                  <dl>
+                    <div>
+                      <dt>issuedAt</dt>
+                      <dd>{receipt.issuedAt}</dd>
+                    </div>
+                    <div>
+                      <dt>aiService</dt>
+                      <dd>{receipt.aiService}</dd>
+                    </div>
+                    <div>
+                      <dt>aiRole</dt>
+                      <dd>{receipt.aiRole}</dd>
+                    </div>
+                    <div>
+                      <dt>thinkingBalance</dt>
+                      <dd>{receipt.thinkingBalance}</dd>
+                    </div>
+                  </dl>
+                  <button
+                    className="secondary-action compact-action"
+                    type="button"
+                    onClick={() => setSelectedReceiptNo(receipt.receiptNo)}
+                  >
+                    詳細を見る
+                  </button>
+                </article>
+              ))}
+            </div>
+          </section>
+
+          {selectedReceipt && (
+            <LedgerReceiptDetail
+              receipt={selectedReceipt}
+              onClose={() => setSelectedReceiptNo(null)}
+            />
+          )}
+          <details className="dev-tools">
+            <summary>開発用</summary>
+            <button className="secondary-action" type="button" onClick={onAddSamples}>
+              サンプル帳簿データを追加
+            </button>
+          </details>
+        </>
+      )}
+    </section>
+  );
+}
+
+function AnalysisScreen({
+  ledgerReceipts,
+  onAddSamples,
+}: {
+  ledgerReceipts: IssuedThinkingReceipt[];
+  onAddSamples: () => void;
+}) {
+  const monthlyStats = buildMonthlyLedgerStats(ledgerReceipts);
+
+  return (
+    <section className="stack">
+      <div className="analysis-header">
+        <div>
+          <p className="eyebrow">月次決算</p>
+          <h2>今月のAIとの関係</h2>
+          <p className="screen-purpose">今月のAIとの関係を短く振り返ります。</p>
+        </div>
+      </div>
+
+      {ledgerReceipts.length === 0 ? (
+        <LedgerEmptyState onAddSamples={onAddSamples} />
+      ) : (
+        <>
+          <div className="settlement-metric-grid">
+            <SettlementMetric label="今月のレシート数" value={`${monthlyStats.count}件`} />
+            <SettlementMetric label="今月よく使ったAI" value={monthlyStats.topService} />
+            <SettlementMetric label="今月よく使った役割" value={monthlyStats.topRole} />
+            <SettlementMetric label="今月の思考残高" value={monthlyStats.topBalance} />
+          </div>
+
+          <section className="card soft-blue">
+            <SectionTitle icon={<Sparkles size={18} />} title="今月のまとめ" />
+            <p className="reflection">{monthlyStats.summary}</p>
+          </section>
+
+          <section className="section-block">
+            <SectionTitle icon={<CheckCircle2 size={18} />} title="自分で決めたことの代表例" />
+            {monthlyStats.decisions.length === 0 ? (
+              <p className="saved-ledger-empty">今月の自己決定はまだ記録されていません。</p>
+            ) : (
+              <div className="ledger-detail-list">
+                {monthlyStats.decisions.slice(0, 3).map((decision) => (
+                  <p key={decision}>{decision}</p>
+                ))}
+              </div>
+            )}
+          </section>
+        </>
+      )}
+    </section>
+  );
+}
+
+function ReceiptsScreen({
   thinkingLedger,
-  filter,
-  filterOrigin,
-  highlightedReceiptId,
   saveMessage,
-  onClearFilter,
-  onReturnFromFilter,
-  onOpenReceipt,
+  onAddSamples,
 }: {
   receipts: ThoughtReceipt[];
   thinkingLedger: IssuedThinkingReceipt[];
@@ -1491,26 +1569,16 @@ function ReceiptsScreen({
   onClearFilter: () => void;
   onReturnFromFilter: () => void;
   onOpenReceipt: (receipt: ThoughtReceipt) => void;
+  onAddSamples: () => void;
 }) {
-  const filteredReceipts = filter ? applyReceiptFilter(receipts, filter) : receipts;
-
   return (
     <section className="stack">
       <div className="receipt-title">
         <div>
-          <p className="eyebrow">思考レシート一覧</p>
-          <h2>家計簿のように、AIとの会話を振り返る</h2>
+          <p className="eyebrow">思考帳簿</p>
+          <h2>保存した思考レシート</h2>
         </div>
       </div>
-
-      <SavedLedgerList receipts={thinkingLedger} />
-
-      {filter && (
-        <button className="back-link" type="button" onClick={onReturnFromFilter}>
-          <ArrowLeft size={16} />
-          {getFilterBackLabel(filterOrigin)}
-        </button>
-      )}
 
       {saveMessage && (
         <div className="save-message" role="status">
@@ -1519,47 +1587,7 @@ function ReceiptsScreen({
         </div>
       )}
 
-      {filter && (
-        <div className="filter-card">
-          <div>
-            <p className="eyebrow">絞り込み中</p>
-            <strong>{getFilterTitle(filter)}</strong>
-            <em>
-              表示中 {filteredReceipts.length}件 / 全{receipts.length}件
-            </em>
-            <span>{getFilterDescription(filter)}</span>
-          </div>
-          <button type="button" onClick={onClearFilter}>
-            絞り込みを解除
-          </button>
-        </div>
-      )}
-
-      <div className="receipt-ledger">
-        {filteredReceipts.map((receipt) => (
-          <ReceiptRow
-            key={receipt.id}
-            receipt={receipt}
-            isHighlighted={receipt.id === highlightedReceiptId}
-            onClick={() => onOpenReceipt(receipt)}
-          />
-        ))}
-      </div>
-
-      {filter && filteredReceipts.length > 0 && (
-        <div className="bottom-return-card">
-          <button type="button" onClick={onReturnFromFilter}>
-            {getBottomReturnLabel(filterOrigin)}
-          </button>
-        </div>
-      )}
-
-      {filteredReceipts.length === 0 && (
-        <section className="card empty-state">
-          <SectionTitle icon={<ReceiptText size={18} />} title="該当するレシートはまだありません" />
-          <p>絞り込みを解除すると、すべての思考レシートを見られます。</p>
-        </section>
-      )}
+      <SavedLedgerList receipts={thinkingLedger} onAddSamples={onAddSamples} />
     </section>
   );
 }
@@ -1745,9 +1773,10 @@ function BottomNav({
   onChange: (tab: TabKey) => void;
 }) {
   const tabs: Array<{ key: TabKey; icon: ReactNode }> = [
-    { key: "home", icon: <Home size={20} /> },
-    { key: "analysis", icon: <BarChart3 size={20} /> },
+    { key: "home", icon: <ReceiptText size={20} /> },
     { key: "receipts", icon: <ReceiptText size={20} /> },
+    { key: "analysis", icon: <CalendarDays size={20} /> },
+    { key: "tax", icon: <BookOpenText size={20} /> },
   ];
 
   return (
@@ -2441,22 +2470,137 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
 }
 
 function buildLedgerStats(data: IssuedThinkingReceipt[]) {
+  const roleBreakdown = countLedgerValues(data.map((receipt) => receipt.aiRole));
+  const feelingBreakdown = countLedgerValues(data.map((receipt) => receipt.feelingAfter));
+  const balanceBreakdown = countLedgerValues(data.map((receipt) => receipt.thinkingBalance));
+  const topService = topLedgerCountLabel(data.map((receipt) => receipt.aiService));
+  const topTopic = topLedgerCountLabel(data.map((receipt) => receipt.topic));
+  const topRole = topLedgerCountLabel(data.map((receipt) => receipt.aiRole));
+  const topFeeling = topLedgerCountLabel(data.map((receipt) => receipt.feelingAfter));
+  const topBalance = topLedgerCountLabel(data.map((receipt) => receipt.thinkingBalance));
+  const decisions = uniqueLedgerTexts(data.map((receipt) => receipt.selfDecision));
+  const aiAddedExamples = uniqueLedgerTexts(data.map((receipt) => receipt.aiAdded)).slice(0, 3);
+  const decisionCount = decisions.filter(
+    (decision) => !decision.includes("まだ明確な判断は記録されていません"),
+  ).length;
+
   return {
     count: data.length,
-    topService: topLedgerCountLabel(data.map((receipt) => receipt.aiService)),
-    topRole: topLedgerCountLabel(data.map((receipt) => receipt.aiRole)),
-    topBalance: topLedgerCountLabel(data.map((receipt) => receipt.thinkingBalance)),
+    topService,
+    topTopic,
+    topRole,
+    topFeeling,
+    topBalance,
+    roleBreakdown,
+    feelingBreakdown,
+    balanceBreakdown,
+    decisions,
+    aiAddedExamples,
+    relationshipComment: buildRelationshipComment({
+      count: data.length,
+      topService,
+      topTopic,
+      topRole,
+      topFeeling,
+      topBalance,
+      decisionCount,
+    }),
   };
 }
 
 function topLedgerCountLabel(values: string[]) {
+  return countLedgerValues(values)[0]?.label ?? "-";
+}
+
+function countLedgerValues(values: string[]) {
   const counts = values.reduce<Record<string, number>>((acc, value) => {
-    const label = value || "-";
+    const label = normalizeLedgerLabel(value);
+    if (!label) return acc;
     acc[label] = (acc[label] ?? 0) + 1;
     return acc;
   }, {});
 
-  return Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "-";
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "ja"))
+    .map(([label, count]) => ({ label, count }));
+}
+
+function normalizeLedgerLabel(value: string) {
+  const trimmed = value.trim();
+  if (!trimmed || trimmed === "-" || trimmed === "未記録") return "";
+  return trimmed;
+}
+
+function uniqueLedgerTexts(values: string[]) {
+  const seen = new Set<string>();
+  return values
+    .map(normalizeLedgerLabel)
+    .filter((value) => {
+      if (!value || seen.has(value)) return false;
+      seen.add(value);
+      return true;
+    });
+}
+
+function buildMonthlyLedgerStats(data: IssuedThinkingReceipt[]) {
+  const currentMonthKey = getCurrentMonthKey();
+  const targetReceipts = data.filter(
+    (receipt) => getLedgerReceiptMonthKey(receipt) === currentMonthKey,
+  );
+  const stats = buildLedgerStats(targetReceipts);
+
+  return {
+    ...stats,
+    monthKey: currentMonthKey,
+    summary: buildMonthlyLedgerSummary(stats),
+  };
+}
+
+function buildMonthlyLedgerSummary(stats: ReturnType<typeof buildLedgerStats>) {
+  if (stats.count === 0) {
+    return "今月はまだ保存済みの思考レシートがありません。会話をレシートとして発行し、帳簿に保存すると月次決算に反映されます。";
+  }
+
+  return `今月は${stats.topService}を「${stats.topRole}」として使う記録が多く、思考残高は「${stats.topBalance}」の傾向です。AIの提案を受け取りながら、自分で決めたことも残っています。`;
+}
+
+function buildRelationshipComment({
+  count,
+  topService,
+  topTopic,
+  topRole,
+  topFeeling,
+  topBalance,
+  decisionCount,
+}: {
+  count: number;
+  topService: string;
+  topTopic: string;
+  topRole: string;
+  topFeeling: string;
+  topBalance: string;
+  decisionCount: number;
+}) {
+  if (count === 0) return emptyLedgerMessage;
+
+  return `あなたは${topService}を単なる答えを出す道具ではなく、「${topRole}」として考えを整理する相手として使う傾向があります。AIの視点を取り入れながらも、最後の方向性は自分で決める記録が${decisionCount}件残っています。思考残高は「${topBalance}」の傾向です。`;
+}
+
+function getCurrentMonthKey() {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getLedgerReceiptMonthKey(receipt: IssuedThinkingReceipt) {
+  return getMonthKeyFromText(receipt.issuedAt) ?? getMonthKeyFromText(receipt.conversationDate);
+}
+
+function getMonthKeyFromText(value: string) {
+  const match = value.match(/(\d{4})[/-年.](\d{1,2})/);
+  if (!match) return null;
+
+  const [, year, month] = match;
+  return `${year}-${month.padStart(2, "0")}`;
 }
 
 function buildSettlementStats(data: ThoughtReceipt[]) {

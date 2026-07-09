@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-type TabKey = "home" | "receipts" | "analysis" | "tax";
+type TabKey = "home" | "receipts" | "journal" | "analysis";
 
 type ThoughtReceipt = {
   id: string;
@@ -61,6 +61,7 @@ type RawConversation = {
 type ThoughtReceiptCandidate = {
   aiService: string;
   conversationDate: string;
+  consultationCategory: string;
   topic: string;
   aiRole: string;
   aiAdded: string;
@@ -82,6 +83,7 @@ const RAW_CONVERSATION_KEY = "aiConversationRaw";
 const THINKING_LEDGER_KEY = "thinkingLedger";
 const RECEIPT_HASH_KEY = "receipt";
 const DRAFT_QUERY_KEY = "draft";
+const POSTER_QUERY_KEY = "poster";
 
 const aiRoleOptions = [
   "壁打ち相手",
@@ -111,6 +113,16 @@ const thinkingBalanceOptions = [
   "まだ保留",
 ];
 
+const consultationCategoryOptions = [
+  "制作・企画",
+  "文章作成",
+  "調査・情報整理",
+  "意思決定",
+  "感情整理",
+  "学習・理解",
+  "その他",
+];
+
 const emptyLedgerMessage =
   "まだ保存された思考レシートがありません。レシートを発行して帳簿に保存すると、ここに記録が表示されます。";
 
@@ -138,63 +150,68 @@ const demoConversation: RawConversation = {
 const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
   {
     receiptNo: "TR-SAMPLE-001",
-    issuedAt: "2026/07/04 10:10",
+    issuedAt: "2026/07/07 10:10",
     aiService: "ChatGPT",
-    conversationDate: "2026/07/04 09:40",
-    topic: "作品コンセプトの壁打ち",
+    conversationDate: "2026/07/07 09:40",
+    consultationCategory: "制作・企画",
+    topic: "作品コンセプトの整理",
     aiRole: "壁打ち相手",
-    aiAdded: "体験の流れ、展示で伝える一文、サービス名の見え方を整理した",
-    selfDecision: "AIとの会話をレシート化して振り返る体験を作品の中心に置くことに決めた",
+    aiAdded: "レシート・帳簿・確定申告という体験構造を整理した",
+    selfDecision: "思考レシートを主役にし、紙とデジタルをつなぐサービスとして見せることに決めた",
     feelingAfter: "考えが広がった",
     thinkingBalance: "一緒に考えた",
   },
   {
     receiptNo: "TR-SAMPLE-002",
-    issuedAt: "2026/07/04 11:25",
+    issuedAt: "2026/07/07 11:25",
     aiService: "Claude",
-    conversationDate: "2026/07/04 10:55",
-    topic: "審査資料の文章構成",
-    aiRole: "編集者",
-    aiAdded: "見出しの順番、説明量の調整、審査員に伝わる要約を追加した",
-    selfDecision: "最初にサービスの流れを示し、その後に技術構成を説明することに決めた",
+    conversationDate: "2026/07/07 10:55",
+    consultationCategory: "制作・企画",
+    topic: "A3ポスターの構成",
+    aiRole: "文章構成",
+    aiAdded: "ポスター内の情報の優先順位と、画面候補の見せる順番を整理した",
+    selfDecision: "発行済みレシート画面をメインビジュアルにすることに決めた",
     feelingAfter: "すっきりした",
-    thinkingBalance: "自分の判断が多い",
+    thinkingBalance: "自分で考えた",
   },
   {
     receiptNo: "TR-SAMPLE-003",
-    issuedAt: "2026/07/03 16:40",
-    aiService: "Perplexity",
-    conversationDate: "2026/07/03 16:05",
-    topic: "関連事例の調査",
-    aiRole: "調査役",
-    aiAdded: "AIログ、セルフリフレクション、データポータビリティの関連事例を比較した",
-    selfDecision: "単なる履歴保存ではなく、自分の判断を残す帳簿として見せることに決めた",
+    issuedAt: "2026/07/06 16:40",
+    aiService: "ChatGPT",
+    conversationDate: "2026/07/06 16:05",
+    consultationCategory: "調査・情報整理",
+    topic: "レシート印刷体験の検討",
+    aiRole: "情報整理",
+    aiAdded: "80mm印刷、QRコード、紙で持ち帰る体験の確認項目を整理した",
+    selfDecision: "紙レシートとWeb記録をQRでつなぐ体験にすることに決めた",
     feelingAfter: "安心した",
-    thinkingBalance: "AIの助けが多い",
-  },
-  {
-    receiptNo: "TR-SAMPLE-004",
-    issuedAt: "2026/07/03 21:15",
-    aiService: "Gemini",
-    conversationDate: "2026/07/03 20:50",
-    topic: "展示体験のアイデア出し",
-    aiRole: "相棒",
-    aiAdded: "レシートプリンター、QR復元、月次決算の見せ方を提案した",
-    selfDecision: "A3ポスターではレシート発行から確定申告までの流れを一枚で見せることに決めた",
-    feelingAfter: "考えが広がった",
     thinkingBalance: "一緒に考えた",
   },
   {
+    receiptNo: "TR-SAMPLE-004",
+    issuedAt: "2026/07/06 21:15",
+    aiService: "Gemini",
+    conversationDate: "2026/07/06 20:50",
+    consultationCategory: "感情整理",
+    topic: "AIとの距離感の言語化",
+    aiRole: "アイデア出し",
+    aiAdded: "AI依存ではなく、AIとの関係を記録するという視点を広げた",
+    selfDecision: "AIを責める表現ではなく、使いっぱなしにしない表現にした",
+    feelingAfter: "考えが広がった",
+    thinkingBalance: "AIに頼った",
+  },
+  {
     receiptNo: "TR-SAMPLE-005",
-    issuedAt: "2026/07/02 18:20",
-    aiService: "NotebookLM",
-    conversationDate: "2026/07/02 17:45",
-    topic: "資料整理と要点抽出",
-    aiRole: "先生",
-    aiAdded: "既存メモから重要な論点と未整理の問いを抽出した",
-    selfDecision: "発表では技術説明よりも、AIとの関係を記録する価値を先に伝えることに決めた",
+    issuedAt: "2026/07/05 18:20",
+    aiService: "Perplexity",
+    conversationDate: "2026/07/05 17:45",
+    consultationCategory: "文章作成",
+    topic: "応募文の整理",
+    aiRole: "調査補助",
+    aiAdded: "作品説明に必要な背景、体験価値、実装済み機能を確認した",
+    selfDecision: "最終的な言葉は自分の体験に合わせて書き直した",
     feelingAfter: "すっきりした",
-    thinkingBalance: "自分の判断が多い",
+    thinkingBalance: "自分で考えた",
   },
 ];
 
@@ -406,8 +423,8 @@ const moodFlow = [
 const tabLabels: Record<TabKey, string> = {
   home: "思考レシート",
   receipts: "思考帳簿",
+  journal: "仕訳帳",
   analysis: "月次決算",
-  tax: "確定申告",
 };
 
 type ReaderStep = "closed" | "scan" | "confirm";
@@ -448,6 +465,8 @@ function resetPageScroll(behavior: ScrollBehavior = "auto", extraElement?: HTMLE
 
 function App() {
   const screenRef = useRef<HTMLDivElement | null>(null);
+  const isPosterMode = useMemo(() => isPosterModeEnabled(), []);
+  const hasIncomingReceiptOrDraft = useMemo(() => hasIncomingReceiptOrDraftParam(), []);
   const [activeTab, setActiveTab] = useState<TabKey>("home");
   const [receiptData, setReceiptData] = useState<ThoughtReceipt[]>(loadReceipts);
   const [readerStep, setReaderStep] = useState<ReaderStep>("closed");
@@ -532,6 +551,36 @@ function App() {
     scrollScreenToTop("auto");
     clearDraftQueryParam();
   }, []);
+
+  useEffect(() => {
+    if (!isPosterMode || hasIncomingReceiptOrDraft) return;
+
+    try {
+      localStorage.setItem(RAW_CONVERSATION_KEY, JSON.stringify(demoConversation));
+    } catch {
+      // poster=1 は撮影補助なので、保存できない環境でも画面上の準備を続けます。
+    }
+
+    setConversationCandidate((current) => current ?? classifyConversation(demoConversation));
+    setConversationMessage((current) =>
+      current || "スクリーンショット用のサンプル会話を読み込みました。",
+    );
+    setCandidateIssueMessage("");
+    setIsSettlementOpen(false);
+
+    setThinkingLedger((current) => {
+      const baseLedger = current.length > 0 ? current : loadThinkingLedger();
+      const updatedLedger = mergeSampleLedgerReceipts(baseLedger);
+      if (JSON.stringify(updatedLedger) !== JSON.stringify(baseLedger)) {
+        try {
+          localStorage.setItem(THINKING_LEDGER_KEY, JSON.stringify(updatedLedger));
+        } catch {
+          // localStorage に保存できなくても、画面上のグラフ表示は続けます。
+        }
+      }
+      return updatedLedger;
+    });
+  }, [hasIncomingReceiptOrDraft, isPosterMode]);
 
   useEffect(() => {
     if (!issuedReceipt) {
@@ -661,20 +710,6 @@ function App() {
     setActiveTab(tab);
     setSaveMessage("");
     setAnalysisFocus(null);
-    scrollScreenToTop("auto");
-  }
-
-  function openSettlement() {
-    setIsSettlementOpen(false);
-    setActiveTab("tax");
-    setSaveMessage("");
-    setAnalysisFocus(null);
-    scrollScreenToTop("auto");
-  }
-
-  function closeSettlement() {
-    setIsSettlementOpen(false);
-    setActiveTab("home");
     scrollScreenToTop("auto");
   }
 
@@ -812,16 +847,26 @@ function App() {
   function addSampleLedgerData() {
     try {
       const current = loadThinkingLedger();
-      const receiptNos = new Set(current.map((receipt) => receipt.receiptNo));
-      const samplesToAdd = sampleThinkingLedgerReceipts.filter(
-        (receipt) => !receiptNos.has(receipt.receiptNo),
-      );
-      const updatedLedger = [...samplesToAdd, ...current];
+      const updatedLedger = mergeSampleLedgerReceipts(current);
       localStorage.setItem(THINKING_LEDGER_KEY, JSON.stringify(updatedLedger));
       setThinkingLedger(updatedLedger);
-      showToast("開発確認用のサンプル帳簿データを追加しました。");
+      showToast("スクリーンショット用のサンプル帳簿データを追加しました。");
     } catch {
       showToast("サンプル帳簿データを追加できませんでした。");
+    }
+  }
+
+  function updateLedgerConsultationCategory(receiptNo: string, consultationCategory: string) {
+    const updatedLedger = thinkingLedger.map((receipt) =>
+      receipt.receiptNo === receiptNo ? { ...receipt, consultationCategory } : receipt,
+    );
+
+    try {
+      localStorage.setItem(THINKING_LEDGER_KEY, JSON.stringify(updatedLedger));
+      setThinkingLedger(updatedLedger);
+      showToast("相談科目を保存しました。");
+    } catch {
+      showToast("相談科目を保存できませんでした。");
     }
   }
 
@@ -841,7 +886,7 @@ function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={isPosterMode ? "app-shell poster-mode" : "app-shell"}>
       <main className="phone-frame">
         <Header />
         <div className="screen" ref={screenRef}>
@@ -849,16 +894,16 @@ function App() {
             <>
               <section className="product-hero">
                 <p className="eyebrow light">思考レシート</p>
-                <h2>私とAIの確定申告</h2>
-                <p>AIとの会話を読み込み、思考レシートとして発行します。</p>
+                <h2>考えたあとに、レシートが出る。</h2>
+                <p>AIとの会話を、使いっぱなしにしない。</p>
               </section>
 
               <section className="demo-start-card">
                 <div>
                   <p className="eyebrow">デモを試す</p>
-                  <h3>サンプル会話から一周する</h3>
+                  <h3>サンプル会話で流れを見る</h3>
                   <p>
-                    AIとの会話から思考レシートを発行し、帳簿・月次決算・確定申告までの流れを体験できます。
+                    発行・保存・振り返りまで、短いデモで体験できます。
                   </p>
                 </div>
                 <button className="secondary-action demo-action" type="button" onClick={loadDemoConversation}>
@@ -877,8 +922,8 @@ function App() {
 
               <section className="extension-import-card extension-import-card-top">
                 <div className="import-card-heading">
-                  <strong>会話データを読み込む</strong>
-                  <p>自動仕分けした候補は、発行前に確認・修正できます。</p>
+                  <strong>会話を思考レシートにする</strong>
+                  <p>自動仕分けした候補を、発行前に確認・修正できます。</p>
                 </div>
                 <button
                   className="extension-import-button"
@@ -926,16 +971,16 @@ function App() {
                 />
             </section>
           )}
-          {!isSettlementOpen && activeTab === "tax" && (
-            <ThoughtSettlementScreen
-              ledgerReceipts={thinkingLedger}
-              onBackHome={closeSettlement}
-              onAddSamples={addSampleLedgerData}
-            />
-          )}
           {!isSettlementOpen && activeTab === "analysis" && (
             <AnalysisScreen
               ledgerReceipts={thinkingLedger}
+              onAddSamples={addSampleLedgerData}
+            />
+          )}
+          {!isSettlementOpen && activeTab === "journal" && (
+            <JournalScreen
+              receipts={thinkingLedger}
+              onUpdateCategory={updateLedgerConsultationCategory}
               onAddSamples={addSampleLedgerData}
             />
           )}
@@ -997,20 +1042,24 @@ function ThoughtSettlementScreen({
   onAddSamples,
 }: {
   ledgerReceipts: IssuedThinkingReceipt[];
-  onBackHome: () => void;
   onAddSamples: () => void;
 }) {
   const ledgerStats = buildLedgerStats(ledgerReceipts);
   const examples = ledgerStats.decisions.slice(0, 3);
+  const isDecember = new Date().getMonth() === 11;
+  const settlementTitle = isDecember ? "今年の確定申告" : "確定申告プレビュー";
+  const settlementDescription = isDecember
+    ? "1年分の思考レシートから、自分とAIの関係を振り返ります。"
+    : "今年ここまでの記録から、年末に見えるAIとの関係を先取りして確認できます。";
 
   return (
     <section className="stack settlement-screen">
       <section className="settlement-hero">
         <div>
-          <p className="eyebrow light">1年分のまとめ</p>
-          <h2>私とAIの確定申告</h2>
+          <p className="eyebrow light">年次まとめ</p>
+          <h2>{settlementTitle}</h2>
         </div>
-        <p>蓄積した記録から、自分とAIの関係を見つめ直します。</p>
+        <p>{settlementDescription}</p>
       </section>
 
       {ledgerReceipts.length === 0 ? (
@@ -1041,6 +1090,11 @@ function ThoughtSettlementScreen({
                 description="主な相談相手になっていたAIを見ます。"
                 items={ledgerStats.serviceBreakdown}
                 maxItems={4}
+              />
+              <AnnualTrendChart
+                title="相談科目の内訳"
+                description="どんな相談として記録していたかを見ます。"
+                items={ledgerStats.consultationCategoryBreakdown}
               />
             </div>
           </section>
@@ -1312,6 +1366,13 @@ function ConversationCandidateForm({
         onChange={onChange}
       />
       <CandidateFieldControl
+        label="相談科目"
+        field="consultationCategory"
+        value={candidate.consultationCategory}
+        options={consultationCategoryOptions}
+        onChange={onChange}
+      />
+      <CandidateFieldControl
         label="AIに求めた役割"
         field="aiRole"
         value={candidate.aiRole}
@@ -1456,6 +1517,7 @@ function IssuedReceiptPanel({
         <ReceiptInfoRow label="発行日時" value={receipt.issuedAt} />
         <ReceiptInfoRow label="使用AI" value={receipt.aiService} />
         <ReceiptInfoRow label="会話日時" value={receipt.conversationDate} />
+        <ReceiptInfoRow label="相談科目" value={receipt.consultationCategory} />
         <ReceiptInfoRow label="相談テーマ" value={receipt.topic} />
         <ReceiptInfoRow label="AIに求めた役割" value={receipt.aiRole} />
         <ReceiptInfoRow
@@ -1600,6 +1662,7 @@ function LedgerReceiptDetail({
         <ConfirmRow label="issuedAt" value={receipt.issuedAt} />
         <ConfirmRow label="使用AI" value={receipt.aiService} />
         <ConfirmRow label="会話日時" value={receipt.conversationDate} />
+        <ConfirmRow label="相談科目" value={receipt.consultationCategory} />
         <ConfirmRow label="相談テーマ" value={receipt.topic} />
         <ConfirmRow label="AIに求めた役割" value={receipt.aiRole} />
         <ConfirmRow label="AIが足したこと" value={receipt.aiAdded} />
@@ -1627,7 +1690,7 @@ function SavedLedgerList({
 
   return (
     <section className="saved-ledger-list">
-      <SectionTitle icon={<WalletCards size={18} />} title="帳簿の概要" />
+      <SectionTitle icon={<WalletCards size={18} />} title="保存済みレシート" />
       <p className="screen-purpose">
         保存した思考レシートを一覧で確認できます。
         {receipts.length > 0 && <span className="ledger-count-inline">保存済み{receipts.length}件</span>}
@@ -1709,19 +1772,22 @@ function AnalysisScreen({
         <div>
           <p className="eyebrow">月次決算</p>
           <h2>今月のAIとの関係</h2>
-          <p className="screen-purpose">今月の思考レシートから、AIとの関わり方を振り返ります。</p>
+          <p className="screen-purpose">今月のAIとの関係と、今年ここまでの傾向を振り返ります。</p>
         </div>
       </div>
 
       {ledgerReceipts.length === 0 ? (
         <LedgerEmptyState onAddSamples={onAddSamples} />
       ) : monthlyStats.count === 0 ? (
-        <section className="monthly-report-card">
-          <SectionTitle icon={<CalendarDays size={18} />} title="今月の記録" />
-          <p className="monthly-insight">
-            今月の思考レシートはまだありません。レシートを発行して帳簿に保存すると、月次決算に反映されます。
-          </p>
-        </section>
+        <>
+          <section className="monthly-report-card">
+            <SectionTitle icon={<CalendarDays size={18} />} title="今月の記録" />
+            <p className="monthly-insight">
+              今月の思考レシートはまだありません。レシートを発行して帳簿に保存すると、月次決算に反映されます。
+            </p>
+          </section>
+          <ThoughtSettlementScreen ledgerReceipts={ledgerReceipts} onAddSamples={onAddSamples} />
+        </>
       ) : (
         <>
           <div className="monthly-metric-grid">
@@ -1729,6 +1795,7 @@ function AnalysisScreen({
             <SettlementMetric label="よく使ったAI" value={monthlyStats.topService} />
             <SettlementMetric label="よく使った役割" value={monthlyStats.topRole} />
             <SettlementMetric label="多かった相談テーマ" value={monthlyStats.topTopic} />
+            <SettlementMetric label="多かった相談科目" value={monthlyStats.topConsultationCategory} />
             <SettlementMetric label="思考残高" value={monthlyStats.topBalance} />
           </div>
 
@@ -1766,6 +1833,7 @@ function AnalysisScreen({
             <SectionTitle icon={<ChevronRight size={18} />} title="次月に向けた一言" />
             <p>{monthlyStats.nextMonthNote}</p>
           </section>
+          <ThoughtSettlementScreen ledgerReceipts={ledgerReceipts} onAddSamples={onAddSamples} />
         </>
       )}
     </section>
@@ -1805,6 +1873,89 @@ function ReceiptsScreen({
       )}
 
       <SavedLedgerList receipts={thinkingLedger} onAddSamples={onAddSamples} />
+    </section>
+  );
+}
+
+function JournalScreen({
+  receipts,
+  onUpdateCategory,
+  onAddSamples,
+}: {
+  receipts: IssuedThinkingReceipt[];
+  onUpdateCategory: (receiptNo: string, consultationCategory: string) => void;
+  onAddSamples: () => void;
+}) {
+  return (
+    <section className="stack">
+      <div className="receipt-title">
+        <div>
+          <p className="eyebrow">仕訳帳</p>
+          <h2>仕訳帳</h2>
+          <p className="screen-purpose">
+            思考レシートを相談科目ごとに分類し、AIに何を頼り、何を自分で決めたのかを見返します。
+          </p>
+        </div>
+      </div>
+
+      {receipts.length === 0 ? (
+        <LedgerEmptyState onAddSamples={onAddSamples} />
+      ) : (
+        <div className="journal-list">
+          {receipts.map((receipt) => (
+            <article className="journal-entry" key={receipt.receiptNo}>
+              <div className="journal-entry-head">
+                <div>
+                  <span>{receipt.issuedAt}</span>
+                  <strong>{receipt.topic}</strong>
+                </div>
+                <label className="journal-category-select">
+                  <span>相談科目</span>
+                  <select
+                    value={receipt.consultationCategory}
+                    onChange={(event) =>
+                      onUpdateCategory(receipt.receiptNo, event.target.value)
+                    }
+                  >
+                    {consultationCategoryOptions.map((option) => (
+                      <option key={option} value={option}>
+                        {option}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              <dl className="journal-entry-grid">
+                <div>
+                  <dt>日付</dt>
+                  <dd>{receipt.issuedAt}</dd>
+                </div>
+                <div>
+                  <dt>使用AI</dt>
+                  <dd>{receipt.aiService}</dd>
+                </div>
+                <div>
+                  <dt>AIに求めた役割</dt>
+                  <dd>{receipt.aiRole}</dd>
+                </div>
+                <div>
+                  <dt>思考残高</dt>
+                  <dd>{receipt.thinkingBalance}</dd>
+                </div>
+                <div>
+                  <dt>AIが足したこと</dt>
+                  <dd>{receipt.aiAdded}</dd>
+                </div>
+                <div>
+                  <dt>自分で決めたこと</dt>
+                  <dd>{receipt.selfDecision}</dd>
+                </div>
+              </dl>
+            </article>
+          ))}
+        </div>
+      )}
     </section>
   );
 }
@@ -1992,8 +2143,8 @@ function BottomNav({
   const tabs: Array<{ key: TabKey; icon: ReactNode }> = [
     { key: "home", icon: <ReceiptText size={20} /> },
     { key: "receipts", icon: <ReceiptText size={20} /> },
+    { key: "journal", icon: <NotebookTabs size={20} /> },
     { key: "analysis", icon: <CalendarDays size={20} /> },
-    { key: "tax", icon: <BookOpenText size={20} /> },
   ];
 
   return (
@@ -2349,14 +2500,17 @@ function classifyConversation(raw: RawConversation): ThoughtReceiptCandidate {
   const allText = messages.map((message) => message.text ?? "").join(" ");
   const assistantText = assistantMessages.map((message) => message.text ?? "").join(" ");
   const selfDecision = inferSelfDecision(userMessages);
+  const topic =
+    compactText(raw.conversationTitle) ||
+    summarizeText(userMessages[0]?.text ?? "無題の相談", 30);
+  const aiRole = inferAiRole(allText);
 
   return {
     aiService: inferAiService(raw),
     conversationDate: compactText(raw.capturedAt) || formatCurrentConversationDate(),
-    topic:
-      compactText(raw.conversationTitle) ||
-      summarizeText(userMessages[0]?.text ?? "無題の相談", 30),
-    aiRole: inferAiRole(allText),
+    consultationCategory: inferConsultationCategory(topic, aiRole, allText),
+    topic,
+    aiRole,
     aiAdded: inferAiAdded(assistantText, allText),
     selfDecision,
     feelingAfter: inferFeelingAfter(allText, selfDecision),
@@ -2404,6 +2558,31 @@ function inferAiRole(text: string) {
   if (hasAny(lower, ["壁打ち", "案", "アイデア", "整理"])) {
     return "壁打ち相手";
   }
+  return "その他";
+}
+
+function inferConsultationCategory(topic = "", aiRole = "", extraText = "") {
+  const text = `${topic} ${aiRole} ${extraText}`.toLowerCase();
+
+  if (hasAny(text, ["作品", "コンセプト", "デザイン", "ポスター", "制作", "企画"])) {
+    return "制作・企画";
+  }
+  if (hasAny(text, ["文章", "応募文", "es", "コピー", "説明文", "構成", "編集"])) {
+    return "文章作成";
+  }
+  if (hasAny(text, ["調査", "情報", "比較", "確認", "整理", "リサーチ"])) {
+    return "調査・情報整理";
+  }
+  if (hasAny(text, ["決める", "決めた", "判断", "選ぶ", "方向性", "意思決定"])) {
+    return "意思決定";
+  }
+  if (hasAny(text, ["不安", "気持ち", "感情", "悩み", "距離感", "安心"])) {
+    return "感情整理";
+  }
+  if (hasAny(text, ["学習", "理解", "勉強", "授業", "先生"])) {
+    return "学習・理解";
+  }
+
   return "その他";
 }
 
@@ -2505,6 +2684,9 @@ function formatCurrentConversationDate() {
 function createIssuedReceipt(candidate: ThoughtReceiptCandidate): IssuedThinkingReceipt {
   return {
     ...candidate,
+    consultationCategory:
+      candidate.consultationCategory ||
+      inferConsultationCategory(candidate.topic, candidate.aiRole, candidate.selfDecision),
     receiptNo: `TR-${Date.now().toString(36).toUpperCase()}`,
     issuedAt: formatCurrentConversationDate(),
   };
@@ -2514,6 +2696,9 @@ function toReceiptCandidate(receipt: IssuedThinkingReceipt): ThoughtReceiptCandi
   return {
     aiService: receipt.aiService,
     conversationDate: receipt.conversationDate,
+    consultationCategory:
+      receipt.consultationCategory ||
+      inferConsultationCategory(receipt.topic, receipt.aiRole, receipt.selfDecision),
     topic: receipt.topic,
     aiRole: receipt.aiRole,
     aiAdded: receipt.aiAdded,
@@ -2536,6 +2721,19 @@ function clearDraftQueryParam() {
   url.searchParams.delete(DRAFT_QUERY_KEY);
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   window.history.replaceState({}, "", nextUrl);
+}
+
+function isPosterModeEnabled() {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get(POSTER_QUERY_KEY) === "1";
+}
+
+function hasIncomingReceiptOrDraftParam() {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  return params.has(DRAFT_QUERY_KEY) || hashParams.has(RECEIPT_HASH_KEY);
 }
 
 function restoreDraftConversationFromUrl() {
@@ -2652,6 +2850,16 @@ function loadThinkingLedger() {
   }
 }
 
+function mergeSampleLedgerReceipts(current: IssuedThinkingReceipt[]) {
+  const sampleReceiptNos = new Set(
+    sampleThinkingLedgerReceipts.map((receipt) => receipt.receiptNo),
+  );
+  const userReceipts = current.filter(
+    (receipt) => !sampleReceiptNos.has(receipt.receiptNo),
+  );
+  return [...sampleThinkingLedgerReceipts, ...userReceipts];
+}
+
 function isIssuedReceipt(receipt: unknown): receipt is IssuedThinkingReceipt {
   return Boolean(normalizeIssuedReceipt(receipt));
 }
@@ -2682,6 +2890,14 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
     issuedAt: target.issuedAt,
     aiService: target.aiService,
     conversationDate: target.conversationDate,
+    consultationCategory:
+      typeof target.consultationCategory === "string"
+        ? target.consultationCategory
+        : inferConsultationCategory(
+            String(target.topic),
+            String(target.aiRole),
+            String(target.selfDecision),
+          ),
     topic: target.topic,
     aiRole: target.aiRole,
     aiAdded: target.aiAdded,
@@ -2696,11 +2912,17 @@ function buildLedgerStats(data: IssuedThinkingReceipt[]) {
   const roleBreakdown = countLedgerValues(data.map((receipt) => receipt.aiRole));
   const feelingBreakdown = countLedgerValues(data.map((receipt) => receipt.feelingAfter));
   const balanceBreakdown = countLedgerValues(data.map((receipt) => receipt.thinkingBalance));
+  const consultationCategoryBreakdown = countLedgerValues(
+    data.map((receipt) => receipt.consultationCategory),
+  );
   const topService = topLedgerCountLabel(data.map((receipt) => receipt.aiService));
   const topTopic = topLedgerCountLabel(data.map((receipt) => receipt.topic));
   const topRole = topLedgerCountLabel(data.map((receipt) => receipt.aiRole));
   const topFeeling = topLedgerCountLabel(data.map((receipt) => receipt.feelingAfter));
   const topBalance = topLedgerCountLabel(data.map((receipt) => receipt.thinkingBalance));
+  const topConsultationCategory = topLedgerCountLabel(
+    data.map((receipt) => receipt.consultationCategory),
+  );
   const decisions = uniqueLedgerTexts(data.map((receipt) => receipt.selfDecision));
   const aiAddedExamples = uniqueLedgerTexts(data.map((receipt) => receipt.aiAdded)).slice(0, 3);
   const decisionCount = decisions.filter(
@@ -2714,10 +2936,12 @@ function buildLedgerStats(data: IssuedThinkingReceipt[]) {
     topRole,
     topFeeling,
     topBalance,
+    topConsultationCategory,
     serviceBreakdown,
     roleBreakdown,
     feelingBreakdown,
     balanceBreakdown,
+    consultationCategoryBreakdown,
     decisions,
     aiAddedExamples,
     relationshipComment: buildRelationshipComment({

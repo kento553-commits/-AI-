@@ -68,9 +68,19 @@ type ThoughtReceiptCandidate = {
   selfDecision: string;
   feelingAfter: string;
   thinkingBalance: string;
+  thinkingAmount: ThinkingAmount;
 };
 
-type CandidateField = keyof ThoughtReceiptCandidate;
+type ThinkingAmount = {
+  aiBorrowing: number;
+  selfInvestment: number;
+  thinkingAsset: number;
+  thinkingExpense: number;
+  selfJudgmentBalance: number;
+};
+
+type ThinkingAmountField = keyof ThinkingAmount;
+type CandidateField = Exclude<keyof ThoughtReceiptCandidate, "thinkingAmount">;
 
 type IssuedThinkingReceipt = ThoughtReceiptCandidate & {
   receiptNo: string;
@@ -123,6 +133,27 @@ const consultationCategoryOptions = [
   "その他",
 ];
 
+const thinkingAmountLabels: Record<ThinkingAmountField, string> = {
+  aiBorrowing: "AI借入",
+  selfInvestment: "自己出資",
+  thinkingAsset: "思考資産",
+  thinkingExpense: "思考支出",
+  selfJudgmentBalance: "自己判断残高",
+};
+
+const thinkingAmountFields = Object.keys(thinkingAmountLabels) as ThinkingAmountField[];
+
+const defaultThinkingAmount: ThinkingAmount = {
+  aiBorrowing: 3,
+  selfInvestment: 3,
+  thinkingAsset: 3,
+  thinkingExpense: 2,
+  selfJudgmentBalance: 3,
+};
+
+const thinkingAmountDescription =
+  "思考量は、AIとの会話で生まれた情報・判断・迷い・自分の決定を、思考の取引として記録するための目安です。AIが自動で断定するものではなく、ユーザーが確認・修正できます。";
+
 const emptyLedgerMessage =
   "まだ保存された思考レシートがありません。レシートを発行して帳簿に保存すると、ここに記録が表示されます。";
 
@@ -160,6 +191,13 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     selfDecision: "思考レシートを主役にし、紙とデジタルをつなぐサービスとして見せることに決めた",
     feelingAfter: "考えが広がった",
     thinkingBalance: "一緒に考えた",
+    thinkingAmount: {
+      aiBorrowing: 4,
+      selfInvestment: 4,
+      thinkingAsset: 5,
+      thinkingExpense: 2,
+      selfJudgmentBalance: 4,
+    },
   },
   {
     receiptNo: "TR-SAMPLE-002",
@@ -173,6 +211,13 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     selfDecision: "発行済みレシート画面をメインビジュアルにすることに決めた",
     feelingAfter: "すっきりした",
     thinkingBalance: "自分で考えた",
+    thinkingAmount: {
+      aiBorrowing: 3,
+      selfInvestment: 5,
+      thinkingAsset: 4,
+      thinkingExpense: 2,
+      selfJudgmentBalance: 5,
+    },
   },
   {
     receiptNo: "TR-SAMPLE-003",
@@ -186,6 +231,13 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     selfDecision: "紙レシートとWeb記録をQRでつなぐ体験にすることに決めた",
     feelingAfter: "安心した",
     thinkingBalance: "一緒に考えた",
+    thinkingAmount: {
+      aiBorrowing: 4,
+      selfInvestment: 3,
+      thinkingAsset: 5,
+      thinkingExpense: 3,
+      selfJudgmentBalance: 4,
+    },
   },
   {
     receiptNo: "TR-SAMPLE-004",
@@ -199,6 +251,13 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     selfDecision: "AIを責める表現ではなく、使いっぱなしにしない表現にした",
     feelingAfter: "考えが広がった",
     thinkingBalance: "AIに頼った",
+    thinkingAmount: {
+      aiBorrowing: 5,
+      selfInvestment: 3,
+      thinkingAsset: 4,
+      thinkingExpense: 4,
+      selfJudgmentBalance: 3,
+    },
   },
   {
     receiptNo: "TR-SAMPLE-005",
@@ -212,6 +271,13 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     selfDecision: "最終的な言葉は自分の体験に合わせて書き直した",
     feelingAfter: "すっきりした",
     thinkingBalance: "自分で考えた",
+    thinkingAmount: {
+      aiBorrowing: 3,
+      selfInvestment: 5,
+      thinkingAsset: 4,
+      thinkingExpense: 3,
+      selfJudgmentBalance: 5,
+    },
   },
 ];
 
@@ -811,6 +877,24 @@ function App() {
     setReceiptActionMessage("");
   }
 
+  function updateConversationThinkingAmount(field: ThinkingAmountField, value: number) {
+    setConversationCandidate((current) =>
+      current
+        ? {
+            ...current,
+            thinkingAmount: {
+              ...current.thinkingAmount,
+              [field]: clampThinkingAmount(value),
+            },
+          }
+        : current,
+    );
+    setCandidateIssueMessage("");
+    setIssuedReceipt(null);
+    setLedgerMessage("");
+    setReceiptActionMessage("");
+  }
+
   function issueConversationCandidate() {
     if (!conversationCandidate) return;
     const receipt = createIssuedReceipt(conversationCandidate);
@@ -944,6 +1028,7 @@ function App() {
                     candidate={conversationCandidate}
                     issueMessage={candidateIssueMessage}
                     onChange={updateConversationCandidate}
+                    onThinkingAmountChange={updateConversationThinkingAmount}
                     onIssue={issueConversationCandidate}
                   />
                 )}
@@ -1096,6 +1181,11 @@ function ThoughtSettlementScreen({
                 description="どんな相談として記録していたかを見ます。"
                 items={ledgerStats.consultationCategoryBreakdown}
               />
+              <AnnualTrendChart
+                title="年次の思考量グラフ"
+                description="5つの仕訳スコアの累計から、思考の使い方を見ます。"
+                items={ledgerStats.thinkingAmountBreakdown}
+              />
             </div>
           </section>
 
@@ -1113,6 +1203,10 @@ function ThoughtSettlementScreen({
               <SettlementBalance
                 title="思考残高の傾向"
                 body={ledgerStats.topBalance}
+              />
+              <SettlementBalance
+                title="自己判断残高の傾向"
+                body={`平均 ${ledgerStats.averageSelfJudgmentBalance.toFixed(1)} / 5`}
               />
             </div>
           </section>
@@ -1146,6 +1240,31 @@ function SettlementMetric({ label, value }: { label: string; value: string }) {
       <span>{label}</span>
       <strong>{value}</strong>
     </article>
+  );
+}
+
+function ThinkingAmountBreakdown({
+  totals,
+  total,
+}: {
+  totals: ThinkingAmount;
+  total: number;
+}) {
+  const maxValue = Math.max(...thinkingAmountFields.map((field) => totals[field]), 1);
+
+  return (
+    <div className="thinking-amount-breakdown">
+      {thinkingAmountFields.map((field) => (
+        <div className="thinking-amount-bar-row" key={field}>
+          <span>{thinkingAmountLabels[field]}</span>
+          <div className="thinking-amount-bar-track">
+            <i style={{ width: `${(totals[field] / maxValue) * 100}%` }} />
+          </div>
+          <strong>{totals[field]}</strong>
+        </div>
+      ))}
+      <p>思考レシートに記録された5つの仕訳スコアの合計です。合計: {total}</p>
+    </div>
   );
 }
 
@@ -1333,11 +1452,13 @@ function ConversationCandidateForm({
   candidate,
   issueMessage,
   onChange,
+  onThinkingAmountChange,
   onIssue,
 }: {
   candidate: ThoughtReceiptCandidate;
   issueMessage: string;
   onChange: (field: CandidateField, value: string) => void;
+  onThinkingAmountChange: (field: ThinkingAmountField, value: number) => void;
   onIssue: () => void;
 }) {
   return (
@@ -1407,6 +1528,10 @@ function ConversationCandidateForm({
         options={thinkingBalanceOptions}
         onChange={onChange}
       />
+      <ThinkingAmountEditor
+        thinkingAmount={candidate.thinkingAmount}
+        onChange={onThinkingAmountChange}
+      />
       <button className="primary-action" type="button" onClick={onIssue}>
         <ReceiptText size={18} />
         レシートを発行する
@@ -1418,6 +1543,40 @@ function ConversationCandidateForm({
         </div>
       )}
     </div>
+  );
+}
+
+function ThinkingAmountEditor({
+  thinkingAmount,
+  onChange,
+}: {
+  thinkingAmount: ThinkingAmount;
+  onChange: (field: ThinkingAmountField, value: number) => void;
+}) {
+  return (
+    <section className="thinking-amount-editor">
+      <div>
+        <span>思考量</span>
+        <strong>思考の取引スコア</strong>
+        <p>{thinkingAmountDescription}</p>
+      </div>
+      <div className="thinking-amount-controls">
+        {thinkingAmountFields.map((field) => (
+          <label className="thinking-amount-control" key={field}>
+            <span>{thinkingAmountLabels[field]}</span>
+            <input
+              type="range"
+              min="1"
+              max="5"
+              step="1"
+              value={thinkingAmount[field]}
+              onChange={(event) => onChange(field, Number(event.target.value))}
+            />
+            <strong>{thinkingAmount[field]}</strong>
+          </label>
+        ))}
+      </div>
+    </section>
   );
 }
 
@@ -1536,6 +1695,17 @@ function IssuedReceiptPanel({
           printValue={shortenForPrint(receipt.feelingAfter, 28)}
         />
         <ReceiptInfoRow label="思考残高" value={receipt.thinkingBalance} />
+        <ReceiptInfoRow
+          label="思考量合計"
+          value={`${getTotalThinkingAmount(receipt.thinkingAmount)}`}
+        />
+        {thinkingAmountFields.map((field) => (
+          <ReceiptInfoRow
+            key={field}
+            label={thinkingAmountLabels[field]}
+            value={`${receipt.thinkingAmount[field]}`}
+          />
+        ))}
       </div>
 
       <div className="qr-panel">
@@ -1669,6 +1839,17 @@ function LedgerReceiptDetail({
         <ConfirmRow label="自分で決めたこと" value={receipt.selfDecision} />
         <ConfirmRow label="会話後の気持ち" value={receipt.feelingAfter} />
         <ConfirmRow label="思考残高" value={receipt.thinkingBalance} />
+        <ConfirmRow
+          label="思考量合計"
+          value={`${getTotalThinkingAmount(receipt.thinkingAmount)}`}
+        />
+        {thinkingAmountFields.map((field) => (
+          <ConfirmRow
+            key={field}
+            label={thinkingAmountLabels[field]}
+            value={`${receipt.thinkingAmount[field]}`}
+          />
+        ))}
       </div>
       <button className="secondary-action compact-action" type="button" onClick={onClose}>
         詳細を閉じる
@@ -1791,6 +1972,10 @@ function AnalysisScreen({
       ) : (
         <>
           <div className="monthly-metric-grid">
+            <SettlementMetric
+              label="今月の思考量合計"
+              value={`${monthlyStats.totalThinkingAmount}`}
+            />
             <SettlementMetric label="今月のレシート数" value={`${monthlyStats.count}件`} />
             <SettlementMetric label="よく使ったAI" value={monthlyStats.topService} />
             <SettlementMetric label="よく使った役割" value={monthlyStats.topRole} />
@@ -1798,6 +1983,14 @@ function AnalysisScreen({
             <SettlementMetric label="多かった相談科目" value={monthlyStats.topConsultationCategory} />
             <SettlementMetric label="思考残高" value={monthlyStats.topBalance} />
           </div>
+
+          <section className="monthly-report-card">
+            <SectionTitle icon={<Coins size={18} />} title="思考量の内訳" />
+            <ThinkingAmountBreakdown
+              totals={monthlyStats.thinkingAmountTotals}
+              total={monthlyStats.totalThinkingAmount}
+            />
+          </section>
 
           <section className="monthly-report-card">
             <SectionTitle icon={<Sparkles size={18} />} title="今月のまとめ" />
@@ -1886,6 +2079,14 @@ function JournalScreen({
   onUpdateCategory: (receiptNo: string, consultationCategory: string) => void;
   onAddSamples: () => void;
 }) {
+  const [expandedReceiptNo, setExpandedReceiptNo] = useState<string | null>(null);
+  const currentMonthKey = getCurrentMonthKey();
+  const monthlyReceipts = receipts.filter(
+    (receipt) => getLedgerReceiptMonthKey(receipt) === currentMonthKey,
+  );
+  const journalStats = buildLedgerStats(monthlyReceipts);
+  const recentReceipts = receipts.slice(0, 5);
+
   return (
     <section className="stack">
       <div className="receipt-title">
@@ -1901,60 +2102,102 @@ function JournalScreen({
       {receipts.length === 0 ? (
         <LedgerEmptyState onAddSamples={onAddSamples} />
       ) : (
-        <div className="journal-list">
-          {receipts.map((receipt) => (
-            <article className="journal-entry" key={receipt.receiptNo}>
-              <div className="journal-entry-head">
-                <div>
-                  <span>{receipt.issuedAt}</span>
-                  <strong>{receipt.topic}</strong>
-                </div>
-                <label className="journal-category-select">
-                  <span>相談科目</span>
-                  <select
-                    value={receipt.consultationCategory}
-                    onChange={(event) =>
-                      onUpdateCategory(receipt.receiptNo, event.target.value)
-                    }
-                  >
-                    {consultationCategoryOptions.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
+        <>
+          <section className="thought-transaction-card">
+            <SectionTitle icon={<Coins size={18} />} title="思考の取引とは" />
+            <p>{thinkingAmountDescription}</p>
+          </section>
 
-              <dl className="journal-entry-grid">
-                <div>
-                  <dt>日付</dt>
-                  <dd>{receipt.issuedAt}</dd>
-                </div>
-                <div>
-                  <dt>使用AI</dt>
-                  <dd>{receipt.aiService}</dd>
-                </div>
-                <div>
-                  <dt>AIに求めた役割</dt>
-                  <dd>{receipt.aiRole}</dd>
-                </div>
-                <div>
-                  <dt>思考残高</dt>
-                  <dd>{receipt.thinkingBalance}</dd>
-                </div>
-                <div>
-                  <dt>AIが足したこと</dt>
-                  <dd>{receipt.aiAdded}</dd>
-                </div>
-                <div>
-                  <dt>自分で決めたこと</dt>
-                  <dd>{receipt.selfDecision}</dd>
-                </div>
-              </dl>
-            </article>
-          ))}
-        </div>
+          <section className="thought-amount-dashboard">
+            <SettlementMetric
+              label="今月の思考量合計"
+              value={`${journalStats.totalThinkingAmount}`}
+            />
+            <ThinkingAmountBreakdown
+              totals={journalStats.thinkingAmountTotals}
+              total={journalStats.totalThinkingAmount}
+            />
+          </section>
+
+          <section className="journal-list-section">
+            <SectionTitle icon={<NotebookTabs size={18} />} title="最近の思考仕訳" />
+            <div className="journal-list">
+              {recentReceipts.map((receipt) => {
+                const isExpanded = expandedReceiptNo === receipt.receiptNo;
+                return (
+                  <article className="journal-entry" key={receipt.receiptNo}>
+                    <div className="journal-entry-head">
+                      <div>
+                        <span>{receipt.issuedAt}</span>
+                        <strong>{receipt.topic}</strong>
+                      </div>
+                      <label className="journal-category-select">
+                        <span>相談科目</span>
+                        <select
+                          value={receipt.consultationCategory}
+                          onChange={(event) =>
+                            onUpdateCategory(receipt.receiptNo, event.target.value)
+                          }
+                        >
+                          {consultationCategoryOptions.map((option) => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+
+                    <div className="journal-amount-strip">
+                      {thinkingAmountFields.map((field) => (
+                        <div key={field}>
+                          <span>{thinkingAmountLabels[field]}</span>
+                          <strong>{receipt.thinkingAmount[field]}</strong>
+                        </div>
+                      ))}
+                    </div>
+
+                    <dl className="journal-entry-grid">
+                      <div>
+                        <dt>使用AI</dt>
+                        <dd>{receipt.aiService}</dd>
+                      </div>
+                      <div>
+                        <dt>AIに求めた役割</dt>
+                        <dd>{receipt.aiRole}</dd>
+                      </div>
+                      <div>
+                        <dt>思考残高</dt>
+                        <dd>{receipt.thinkingBalance}</dd>
+                      </div>
+                      <div>
+                        <dt>思考量合計</dt>
+                        <dd>{getTotalThinkingAmount(receipt.thinkingAmount)}</dd>
+                      </div>
+                    </dl>
+
+                    <button
+                      className="secondary-action compact-action"
+                      type="button"
+                      onClick={() =>
+                        setExpandedReceiptNo(isExpanded ? null : receipt.receiptNo)
+                      }
+                    >
+                      {isExpanded ? "詳細を閉じる" : "詳細を見る"}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="journal-entry-detail">
+                        <ConfirmRow label="AIが足したこと" value={receipt.aiAdded} />
+                        <ConfirmRow label="自分で決めたこと" value={receipt.selfDecision} />
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          </section>
+        </>
       )}
     </section>
   );
@@ -2504,6 +2747,8 @@ function classifyConversation(raw: RawConversation): ThoughtReceiptCandidate {
     compactText(raw.conversationTitle) ||
     summarizeText(userMessages[0]?.text ?? "無題の相談", 30);
   const aiRole = inferAiRole(allText);
+  const aiAdded = inferAiAdded(assistantText, allText);
+  const feelingAfter = inferFeelingAfter(allText, selfDecision);
 
   return {
     aiService: inferAiService(raw),
@@ -2511,10 +2756,18 @@ function classifyConversation(raw: RawConversation): ThoughtReceiptCandidate {
     consultationCategory: inferConsultationCategory(topic, aiRole, allText),
     topic,
     aiRole,
-    aiAdded: inferAiAdded(assistantText, allText),
+    aiAdded,
     selfDecision,
-    feelingAfter: inferFeelingAfter(allText, selfDecision),
+    feelingAfter,
     thinkingBalance: inferThinkingBalance(userMessages.length, assistantMessages.length, selfDecision),
+    thinkingAmount: inferThinkingAmount({
+      topic,
+      aiRole,
+      aiAdded,
+      selfDecision,
+      feelingAfter,
+      allText,
+    }),
   };
 }
 
@@ -2584,6 +2837,67 @@ function inferConsultationCategory(topic = "", aiRole = "", extraText = "") {
   }
 
   return "その他";
+}
+
+function inferThinkingAmount({
+  topic,
+  aiRole,
+  aiAdded,
+  selfDecision,
+  feelingAfter,
+  allText = "",
+}: {
+  topic: string;
+  aiRole: string;
+  aiAdded: string;
+  selfDecision: string;
+  feelingAfter: string;
+  allText?: string;
+}): ThinkingAmount {
+  const aiText = `${aiAdded} ${aiRole} ${allText}`;
+  const selfText = `${selfDecision} ${topic} ${allText}`;
+  const assetText = `${aiAdded} ${selfDecision}`;
+  const expenseText = `${feelingAfter} ${topic} ${allText}`;
+  const hasDecision = !selfDecision.includes("まだ明確な判断");
+
+  return {
+    aiBorrowing: scoreBySignals(aiText, ["整理", "提案", "比較", "言語化", "論点", "構成"], aiAdded.length > 42 ? 4 : 3),
+    selfInvestment: scoreBySignals(selfText, ["自分で決めた", "選んだ", "方向性", "体験", "価値観", "違和感"], hasDecision ? 4 : 2),
+    thinkingAsset: scoreBySignals(assetText, ["次に使える", "判断材料", "見通し", "方向性", "整理された", "残す"], 3),
+    thinkingExpense: scoreBySignals(expenseText, ["迷い", "不安", "焦り", "悩み", "書き直し", "時間がかかった"], 2),
+    selfJudgmentBalance: hasDecision
+      ? scoreBySignals(selfDecision, ["自分で", "決めた", "選んだ", "方向性", "書き直した"], 4)
+      : 2,
+  };
+}
+
+function scoreBySignals(text: string, keywords: string[], baseScore: number) {
+  const hits = keywords.filter((keyword) => text.includes(keyword)).length;
+  return clampThinkingAmount(baseScore + Math.min(hits, 2));
+}
+
+function normalizeThinkingAmount(value: unknown, fallback?: Partial<ThinkingAmount>): ThinkingAmount {
+  const source = value && typeof value === "object" ? (value as Partial<ThinkingAmount>) : {};
+  return {
+    aiBorrowing: clampThinkingAmount(source.aiBorrowing ?? fallback?.aiBorrowing ?? defaultThinkingAmount.aiBorrowing),
+    selfInvestment: clampThinkingAmount(source.selfInvestment ?? fallback?.selfInvestment ?? defaultThinkingAmount.selfInvestment),
+    thinkingAsset: clampThinkingAmount(source.thinkingAsset ?? fallback?.thinkingAsset ?? defaultThinkingAmount.thinkingAsset),
+    thinkingExpense: clampThinkingAmount(source.thinkingExpense ?? fallback?.thinkingExpense ?? defaultThinkingAmount.thinkingExpense),
+    selfJudgmentBalance: clampThinkingAmount(
+      source.selfJudgmentBalance ??
+        fallback?.selfJudgmentBalance ??
+        defaultThinkingAmount.selfJudgmentBalance,
+    ),
+  };
+}
+
+function clampThinkingAmount(value: number) {
+  const numeric = Number.isFinite(value) ? Math.round(value) : 3;
+  return Math.min(5, Math.max(1, numeric));
+}
+
+function getTotalThinkingAmount(thinkingAmount: ThinkingAmount) {
+  return thinkingAmountFields.reduce((sum, field) => sum + thinkingAmount[field], 0);
 }
 
 function inferAiAdded(assistantText: string, allText: string) {
@@ -2687,6 +3001,7 @@ function createIssuedReceipt(candidate: ThoughtReceiptCandidate): IssuedThinking
     consultationCategory:
       candidate.consultationCategory ||
       inferConsultationCategory(candidate.topic, candidate.aiRole, candidate.selfDecision),
+    thinkingAmount: normalizeThinkingAmount(candidate.thinkingAmount),
     receiptNo: `TR-${Date.now().toString(36).toUpperCase()}`,
     issuedAt: formatCurrentConversationDate(),
   };
@@ -2705,6 +3020,7 @@ function toReceiptCandidate(receipt: IssuedThinkingReceipt): ThoughtReceiptCandi
     selfDecision: receipt.selfDecision,
     feelingAfter: receipt.feelingAfter,
     thinkingBalance: receipt.thinkingBalance,
+    thinkingAmount: normalizeThinkingAmount(receipt.thinkingAmount),
   };
 }
 
@@ -2904,6 +3220,16 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
     selfDecision: target.selfDecision,
     feelingAfter: target.feelingAfter,
     thinkingBalance: target.thinkingBalance,
+    thinkingAmount: normalizeThinkingAmount(
+      target.thinkingAmount,
+      inferThinkingAmount({
+        topic: String(target.topic),
+        aiRole: String(target.aiRole),
+        aiAdded: String(target.aiAdded),
+        selfDecision: String(target.selfDecision),
+        feelingAfter: String(target.feelingAfter),
+      }),
+    ),
   } as IssuedThinkingReceipt;
 }
 
@@ -2912,6 +3238,14 @@ function buildLedgerStats(data: IssuedThinkingReceipt[]) {
   const roleBreakdown = countLedgerValues(data.map((receipt) => receipt.aiRole));
   const feelingBreakdown = countLedgerValues(data.map((receipt) => receipt.feelingAfter));
   const balanceBreakdown = countLedgerValues(data.map((receipt) => receipt.thinkingBalance));
+  const thinkingAmountTotals = getThinkingAmountTotals(data);
+  const thinkingAmountBreakdown = getThinkingAmountBreakdown(thinkingAmountTotals);
+  const totalThinkingAmount = thinkingAmountFields.reduce(
+    (sum, field) => sum + thinkingAmountTotals[field],
+    0,
+  );
+  const averageSelfJudgmentBalance =
+    data.length === 0 ? 0 : thinkingAmountTotals.selfJudgmentBalance / data.length;
   const consultationCategoryBreakdown = countLedgerValues(
     data.map((receipt) => receipt.consultationCategory),
   );
@@ -2941,6 +3275,10 @@ function buildLedgerStats(data: IssuedThinkingReceipt[]) {
     roleBreakdown,
     feelingBreakdown,
     balanceBreakdown,
+    thinkingAmountTotals,
+    thinkingAmountBreakdown,
+    totalThinkingAmount,
+    averageSelfJudgmentBalance,
     consultationCategoryBreakdown,
     decisions,
     aiAddedExamples,
@@ -2963,6 +3301,31 @@ function buildLedgerStats(data: IssuedThinkingReceipt[]) {
 
 function topLedgerCountLabel(values: string[]) {
   return countLedgerValues(values)[0]?.label ?? "-";
+}
+
+function getThinkingAmountTotals(data: IssuedThinkingReceipt[]) {
+  return data.reduce<ThinkingAmount>(
+    (totals, receipt) => {
+      thinkingAmountFields.forEach((field) => {
+        totals[field] += receipt.thinkingAmount[field];
+      });
+      return totals;
+    },
+    {
+      aiBorrowing: 0,
+      selfInvestment: 0,
+      thinkingAsset: 0,
+      thinkingExpense: 0,
+      selfJudgmentBalance: 0,
+    },
+  );
+}
+
+function getThinkingAmountBreakdown(totals: ThinkingAmount) {
+  return thinkingAmountFields.map((field) => ({
+    label: thinkingAmountLabels[field],
+    count: totals[field],
+  }));
 }
 
 function countLedgerValues(values: string[]) {

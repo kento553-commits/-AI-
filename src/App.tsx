@@ -21,7 +21,7 @@ import {
   X,
 } from "lucide-react";
 
-type TabKey = "home" | "receipts" | "journal" | "analysis";
+type TabKey = "home" | "receipt" | "journal" | "receipts" | "analysis";
 
 type ThoughtReceipt = {
   id: string;
@@ -487,10 +487,11 @@ const moodFlow = [
 ];
 
 const tabLabels: Record<TabKey, string> = {
-  home: "思考レシート",
-  receipts: "思考帳簿",
-  journal: "仕訳帳",
-  analysis: "月次決算",
+  home: "ホーム",
+  receipt: "レシート",
+  journal: "仕訳",
+  receipts: "帳簿",
+  analysis: "決算",
 };
 
 type ReaderStep = "closed" | "scan" | "confirm";
@@ -588,7 +589,7 @@ function App() {
     setConversationMessage("URLから思考レシートを復元しました。内容を確認して帳簿に保存できます。");
     setCandidateIssueMessage("復元済みのレシートです。");
     setIsSettlementOpen(false);
-    setActiveTab("home");
+    setActiveTab("receipt");
     scrollScreenToTop("auto");
     clearDraftQueryParam();
   }, []);
@@ -613,7 +614,7 @@ function App() {
     setIssuedReceipt(null);
     setLedgerMessage("");
     setIsSettlementOpen(false);
-    setActiveTab("home");
+    setActiveTab("receipt");
     scrollScreenToTop("auto");
     clearDraftQueryParam();
   }, []);
@@ -814,7 +815,7 @@ function App() {
         "AIとの会話から、思考レシート候補を作成しました。内容を確認してから発行してください。",
       );
       setIsSettlementOpen(false);
-      setActiveTab("home");
+      setActiveTab("receipt");
       scrollScreenToTop("smooth");
     } catch {
       setConversationCandidate(null);
@@ -837,7 +838,7 @@ function App() {
     setReceiptActionMessage("");
     setConversationMessage("サンプル会話から、思考レシート候補を作成しました。");
     setIsSettlementOpen(false);
-    setActiveTab("home");
+    setActiveTab("receipt");
     scrollScreenToTop("smooth");
   }
 
@@ -954,6 +955,32 @@ function App() {
     }
   }
 
+  function updateLedgerThinkingAmount(
+    receiptNo: string,
+    field: ThinkingAmountField,
+    value: number,
+  ) {
+    const updatedLedger = thinkingLedger.map((receipt) =>
+      receipt.receiptNo === receiptNo
+        ? {
+            ...receipt,
+            thinkingAmount: {
+              ...receipt.thinkingAmount,
+              [field]: clampThinkingAmount(value),
+            },
+          }
+        : receipt,
+    );
+
+    try {
+      localStorage.setItem(THINKING_LEDGER_KEY, JSON.stringify(updatedLedger));
+      setThinkingLedger(updatedLedger);
+      showToast("仕訳スコアを保存しました。");
+    } catch {
+      showToast("仕訳スコアを保存できませんでした。");
+    }
+  }
+
   function printIssuedReceipt() {
     window.print();
   }
@@ -972,9 +999,25 @@ function App() {
   return (
     <div className={isPosterMode ? "app-shell poster-mode" : "app-shell"}>
       <main className="phone-frame">
-        <Header />
+        <Header
+          onHome={() => {
+            setIsSettlementOpen(false);
+            setActiveTab("home");
+            setSaveMessage("");
+            setAnalysisFocus(null);
+            scrollScreenToTop("auto");
+          }}
+        />
         <div className="screen" ref={screenRef}>
-          {!isSettlementOpen && activeTab === "home" && !issuedReceipt && (
+          {!isSettlementOpen && activeTab === "home" && (
+            <LandingHomeScreen
+              recentReceipt={thinkingLedger[0] ?? null}
+              onLoadDemo={loadDemoConversation}
+              onGoReceipt={() => handleTabChange("receipt")}
+              onResetDemo={resetDemoData}
+            />
+          )}
+          {!isSettlementOpen && activeTab === "receipt" && !issuedReceipt && (
             <>
               <section className="product-hero">
                 <p className="eyebrow light">思考レシート</p>
@@ -982,41 +1025,25 @@ function App() {
                 <p>AIとの会話を、使いっぱなしにしない。</p>
               </section>
 
-              <section className="demo-start-card">
-                <div>
-                  <p className="eyebrow">デモを試す</p>
-                  <h3>サンプル会話で流れを見る</h3>
-                  <p>
-                    発行・保存・振り返りまで、短いデモで体験できます。
-                  </p>
-                </div>
-                <button className="secondary-action demo-action" type="button" onClick={loadDemoConversation}>
-                  <Sparkles size={17} />
-                  サンプル会話を読み込む
-                </button>
-              </section>
-
-              <ol className="experience-steps" aria-label="デモの流れ">
-                <li>会話を読み込む</li>
-                <li>候補を確認</li>
-                <li>発行</li>
-                <li>保存</li>
-                <li>振り返る</li>
-              </ol>
-
               <section className="extension-import-card extension-import-card-top">
                 <div className="import-card-heading">
                   <strong>会話を思考レシートにする</strong>
                   <p>自動仕分けした候補を、発行前に確認・修正できます。</p>
                 </div>
-                <button
-                  className="extension-import-button"
-                  type="button"
-                  onClick={loadExtensionConversation}
-                >
-                  <ScanLine size={18} />
-                  拡張機能データを読み込む
-                </button>
+                <div className="receipt-import-actions">
+                  <button
+                    className="extension-import-button"
+                    type="button"
+                    onClick={loadExtensionConversation}
+                  >
+                    <ScanLine size={18} />
+                    拡張機能データを読み込む
+                  </button>
+                  <button className="secondary-action" type="button" onClick={loadDemoConversation}>
+                    <Sparkles size={17} />
+                    サンプル会話を読み込む
+                  </button>
+                </div>
                 {conversationMessage && (
                   <div className="candidate-message" role="status">
                     <CheckCircle2 size={18} />
@@ -1041,7 +1068,7 @@ function App() {
               </section>
             </>
           )}
-          {!isSettlementOpen && activeTab === "home" && issuedReceipt && (
+          {!isSettlementOpen && activeTab === "receipt" && issuedReceipt && (
             <section className="extension-import-card extension-import-card-top print-receipt-host">
               <IssuedReceiptPanel
                 receipt={issuedReceipt}
@@ -1066,6 +1093,7 @@ function App() {
             <JournalScreen
               receipts={thinkingLedger}
               onUpdateCategory={updateLedgerConsultationCategory}
+              onUpdateThinkingAmount={updateLedgerThinkingAmount}
               onAddSamples={addSampleLedgerData}
             />
           )}
@@ -1100,13 +1128,103 @@ function App() {
   );
 }
 
-function Header() {
+function LandingHomeScreen({
+  recentReceipt,
+  onLoadDemo,
+  onGoReceipt,
+  onResetDemo,
+}: {
+  recentReceipt: IssuedThinkingReceipt | null;
+  onLoadDemo: () => void;
+  onGoReceipt: () => void;
+  onResetDemo: () => void;
+}) {
+  const flowSteps = [
+    "AIと会話する",
+    "レシートを発行",
+    "仕訳で分類",
+    "帳簿に保存する",
+    "決算で振り返る",
+  ];
+
+  return (
+    <div className="home-screen">
+      <section className="home-hero">
+        <p className="eyebrow light">私とAIの確定申告</p>
+        <h2>考えたあとに、レシートが出る。</h2>
+        <p>
+          AIとの会話を思考レシートとして発行し、仕訳・帳簿・決算で振り返るサービスです。
+        </p>
+        <div className="home-actions">
+          <button className="primary-action" type="button" onClick={onLoadDemo}>
+            <Sparkles size={18} />
+            サンプル会話を読み込む
+          </button>
+          <button className="secondary-action home-secondary-action" type="button" onClick={onGoReceipt}>
+            レシート画面へ進む
+            <ChevronRight size={17} />
+          </button>
+        </div>
+        <p className="home-helper">
+          まずはサンプルで、思考レシートが発行される流れを体験できます。
+        </p>
+      </section>
+
+      <section className="home-recent-card" aria-label="最近の思考レシート">
+        <div className="home-section-heading">
+          <p className="eyebrow">最近の記録</p>
+          <h3>最近の思考レシート</h3>
+        </div>
+        {recentReceipt ? (
+          <article className="home-recent-receipt">
+            <span>{recentReceipt.aiService}</span>
+            <strong>{recentReceipt.topic}</strong>
+            <small>
+              {recentReceipt.consultationCategory} / {recentReceipt.thinkingBalance}
+            </small>
+          </article>
+        ) : (
+          <p className="home-empty-note">
+            まだ保存された思考レシートはありません。サンプルから流れを試せます。
+          </p>
+        )}
+      </section>
+
+      <section className="home-flow-card" aria-label="サービスの流れ">
+        <div className="home-section-heading">
+          <p className="eyebrow">流れ</p>
+          <h3>会話から振り返りまで</h3>
+        </div>
+        <ol className="home-flow-list">
+          {flowSteps.map((step, index) => (
+            <li key={step}>
+              <span>{index + 1}</span>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <details className="dev-tools home-dev-tools">
+        <summary>デモ用</summary>
+        <button className="secondary-action" type="button" onClick={onResetDemo}>
+          デモデータをリセット
+        </button>
+      </details>
+    </div>
+  );
+}
+
+function Header({ onHome }: { onHome: () => void }) {
   return (
     <header className="top-header">
-      <div>
+      <button className="brand-button" type="button" onClick={onHome}>
         <p className="eyebrow">思考帳簿アプリ</p>
         <h1>私とAIの確定申告</h1>
-      </div>
+      </button>
+      <button className="icon-button" type="button" aria-label="ホームへ戻る" onClick={onHome}>
+        <Home size={20} />
+      </button>
     </header>
   );
 }
@@ -1866,8 +1984,6 @@ function SavedLedgerList({
   onAddSamples: () => void;
 }) {
   const [selectedReceiptNo, setSelectedReceiptNo] = useState<string | null>(null);
-  const selectedReceipt =
-    receipts.find((receipt) => receipt.receiptNo === selectedReceiptNo) ?? null;
 
   return (
     <section className="saved-ledger-list">
@@ -1883,48 +1999,57 @@ function SavedLedgerList({
           <section className="saved-ledger-section">
             <h4>保存済みレシート一覧</h4>
             <div className="saved-ledger-items">
-              {receipts.map((receipt) => (
-                <article className="saved-ledger-item" key={receipt.receiptNo}>
-                  <div>
-                    <span>{receipt.receiptNo}</span>
-                    <strong>{receipt.topic}</strong>
-                  </div>
-                  <dl>
-                    <div>
-                      <dt>issuedAt</dt>
-                      <dd>{receipt.issuedAt}</dd>
-                    </div>
-                    <div>
-                      <dt>aiService</dt>
-                      <dd>{receipt.aiService}</dd>
-                    </div>
-                    <div>
-                      <dt>aiRole</dt>
-                      <dd>{receipt.aiRole}</dd>
-                    </div>
-                    <div>
-                      <dt>thinkingBalance</dt>
-                      <dd>{receipt.thinkingBalance}</dd>
-                    </div>
-                  </dl>
-                  <button
-                    className="secondary-action compact-action"
-                    type="button"
-                    onClick={() => setSelectedReceiptNo(receipt.receiptNo)}
+              {receipts.map((receipt) => {
+                const isExpanded = selectedReceiptNo === receipt.receiptNo;
+
+                return (
+                  <article
+                    className={isExpanded ? "saved-ledger-item expanded" : "saved-ledger-item"}
+                    key={receipt.receiptNo}
                   >
-                    詳細を見る
-                  </button>
-                </article>
-              ))}
+                    <div>
+                      <span>{receipt.receiptNo}</span>
+                      <strong>{receipt.topic}</strong>
+                    </div>
+                    <dl>
+                      <div>
+                        <dt>issuedAt</dt>
+                        <dd>{receipt.issuedAt}</dd>
+                      </div>
+                      <div>
+                        <dt>aiService</dt>
+                        <dd>{receipt.aiService}</dd>
+                      </div>
+                      <div>
+                        <dt>aiRole</dt>
+                        <dd>{receipt.aiRole}</dd>
+                      </div>
+                      <div>
+                        <dt>thinkingBalance</dt>
+                        <dd>{receipt.thinkingBalance}</dd>
+                      </div>
+                    </dl>
+                    <button
+                      className="secondary-action compact-action"
+                      type="button"
+                      onClick={() =>
+                        setSelectedReceiptNo(isExpanded ? null : receipt.receiptNo)
+                      }
+                    >
+                      {isExpanded ? "詳細を閉じる" : "詳細を見る"}
+                    </button>
+                    {isExpanded && (
+                      <LedgerReceiptDetail
+                        receipt={receipt}
+                        onClose={() => setSelectedReceiptNo(null)}
+                      />
+                    )}
+                  </article>
+                );
+              })}
             </div>
           </section>
 
-          {selectedReceipt && (
-            <LedgerReceiptDetail
-              receipt={selectedReceipt}
-              onClose={() => setSelectedReceiptNo(null)}
-            />
-          )}
           <details className="dev-tools">
             <summary>開発用</summary>
             <button className="secondary-action" type="button" onClick={onAddSamples}>
@@ -2073,28 +2198,49 @@ function ReceiptsScreen({
 function JournalScreen({
   receipts,
   onUpdateCategory,
+  onUpdateThinkingAmount,
   onAddSamples,
 }: {
   receipts: IssuedThinkingReceipt[];
   onUpdateCategory: (receiptNo: string, consultationCategory: string) => void;
+  onUpdateThinkingAmount: (
+    receiptNo: string,
+    field: ThinkingAmountField,
+    value: number,
+  ) => void;
   onAddSamples: () => void;
 }) {
   const [expandedReceiptNo, setExpandedReceiptNo] = useState<string | null>(null);
-  const currentMonthKey = getCurrentMonthKey();
-  const monthlyReceipts = receipts.filter(
-    (receipt) => getLedgerReceiptMonthKey(receipt) === currentMonthKey,
-  );
-  const journalStats = buildLedgerStats(monthlyReceipts);
-  const recentReceipts = receipts.slice(0, 5);
+  const [categoryFilter, setCategoryFilter] = useState("すべて");
+  const journalFields: ThinkingAmountField[] = [
+    "aiBorrowing",
+    "selfInvestment",
+    "thinkingAsset",
+    "selfJudgmentBalance",
+  ];
+  const scoreDescriptions: Record<ThinkingAmountField, string> = {
+    aiBorrowing: "AIから借りた視点や言葉",
+    selfInvestment: "自分の経験や目的を入れた量",
+    thinkingAsset: "あとから使える判断材料",
+    thinkingExpense: "迷い・書き直し・考える負荷",
+    selfJudgmentBalance: "最後に自分で決めた度合い",
+  };
+  const filteredReceipts =
+    categoryFilter === "すべて"
+      ? receipts
+      : receipts.filter((receipt) => receipt.consultationCategory === categoryFilter);
 
   return (
     <section className="stack">
       <div className="receipt-title">
         <div>
-          <p className="eyebrow">仕訳帳</p>
-          <h2>仕訳帳</h2>
+          <p className="eyebrow">仕訳</p>
+          <h2>仕訳</h2>
           <p className="screen-purpose">
-            思考レシートを相談科目ごとに分類し、AIに何を頼り、何を自分で決めたのかを見返します。
+            AIとの会話を、思考の役割ごとに分類します。
+          </p>
+          <p className="journal-subcopy">
+            AIに借りたもの、自分が出したもの、会話後に残ったものを記録します。
           </p>
         </div>
       </div>
@@ -2103,26 +2249,38 @@ function JournalScreen({
         <LedgerEmptyState onAddSamples={onAddSamples} />
       ) : (
         <>
-          <section className="thought-transaction-card">
-            <SectionTitle icon={<Coins size={18} />} title="思考の取引とは" />
-            <p>{thinkingAmountDescription}</p>
-          </section>
-
-          <section className="thought-amount-dashboard">
-            <SettlementMetric
-              label="今月の思考量合計"
-              value={`${journalStats.totalThinkingAmount}`}
-            />
-            <ThinkingAmountBreakdown
-              totals={journalStats.thinkingAmountTotals}
-              total={journalStats.totalThinkingAmount}
-            />
+          <section className="journal-score-guide">
+            {journalFields.map((field) => (
+              <article key={field}>
+                <strong>{thinkingAmountLabels[field]}</strong>
+                <p>{scoreDescriptions[field]}</p>
+              </article>
+            ))}
           </section>
 
           <section className="journal-list-section">
-            <SectionTitle icon={<NotebookTabs size={18} />} title="最近の思考仕訳" />
+            <div className="journal-list-heading">
+              <SectionTitle icon={<NotebookTabs size={18} />} title="思考仕訳" />
+              <label className="journal-filter">
+                <span>相談科目で絞り込み</span>
+                <select
+                  value={categoryFilter}
+                  onChange={(event) => {
+                    setCategoryFilter(event.target.value);
+                    setExpandedReceiptNo(null);
+                  }}
+                >
+                  <option value="すべて">すべて</option>
+                  {consultationCategoryOptions.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
             <div className="journal-list">
-              {recentReceipts.map((receipt) => {
+              {filteredReceipts.map((receipt) => {
                 const isExpanded = expandedReceiptNo === receipt.receiptNo;
                 return (
                   <article className="journal-entry" key={receipt.receiptNo}>
@@ -2131,50 +2289,17 @@ function JournalScreen({
                         <span>{receipt.issuedAt}</span>
                         <strong>{receipt.topic}</strong>
                       </div>
-                      <label className="journal-category-select">
-                        <span>相談科目</span>
-                        <select
-                          value={receipt.consultationCategory}
-                          onChange={(event) =>
-                            onUpdateCategory(receipt.receiptNo, event.target.value)
-                          }
-                        >
-                          {consultationCategoryOptions.map((option) => (
-                            <option key={option} value={option}>
-                              {option}
-                            </option>
-                          ))}
-                        </select>
-                      </label>
+                      <p className="journal-category-chip">相談科目：{receipt.consultationCategory}</p>
                     </div>
 
                     <div className="journal-amount-strip">
-                      {thinkingAmountFields.map((field) => (
+                      {journalFields.map((field) => (
                         <div key={field}>
                           <span>{thinkingAmountLabels[field]}</span>
                           <strong>{receipt.thinkingAmount[field]}</strong>
                         </div>
                       ))}
                     </div>
-
-                    <dl className="journal-entry-grid">
-                      <div>
-                        <dt>使用AI</dt>
-                        <dd>{receipt.aiService}</dd>
-                      </div>
-                      <div>
-                        <dt>AIに求めた役割</dt>
-                        <dd>{receipt.aiRole}</dd>
-                      </div>
-                      <div>
-                        <dt>思考残高</dt>
-                        <dd>{receipt.thinkingBalance}</dd>
-                      </div>
-                      <div>
-                        <dt>思考量合計</dt>
-                        <dd>{getTotalThinkingAmount(receipt.thinkingAmount)}</dd>
-                      </div>
-                    </dl>
 
                     <button
                       className="secondary-action compact-action"
@@ -2183,18 +2308,58 @@ function JournalScreen({
                         setExpandedReceiptNo(isExpanded ? null : receipt.receiptNo)
                       }
                     >
-                      {isExpanded ? "詳細を閉じる" : "詳細を見る"}
+                      {isExpanded ? "編集を閉じる" : "仕訳を編集する"}
                     </button>
 
                     {isExpanded && (
-                      <div className="journal-entry-detail">
-                        <ConfirmRow label="AIが足したこと" value={receipt.aiAdded} />
-                        <ConfirmRow label="自分で決めたこと" value={receipt.selfDecision} />
+                      <div className="journal-edit-panel">
+                        <label className="journal-category-select">
+                          <span>相談科目</span>
+                          <select
+                            value={receipt.consultationCategory}
+                            onChange={(event) =>
+                              onUpdateCategory(receipt.receiptNo, event.target.value)
+                            }
+                          >
+                            {consultationCategoryOptions.map((option) => (
+                              <option key={option} value={option}>
+                                {option}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                        <div className="journal-score-edit-list">
+                          {journalFields.map((field) => (
+                            <label className="journal-score-edit" key={field}>
+                              <span>
+                                {thinkingAmountLabels[field]}
+                                <strong>{receipt.thinkingAmount[field]}</strong>
+                              </span>
+                              <input
+                                type="range"
+                                min="1"
+                                max="5"
+                                value={receipt.thinkingAmount[field]}
+                                onChange={(event) =>
+                                  onUpdateThinkingAmount(
+                                    receipt.receiptNo,
+                                    field,
+                                    Number(event.target.value),
+                                  )
+                                }
+                              />
+                              <small>{scoreDescriptions[field]}</small>
+                            </label>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </article>
                 );
               })}
+              {filteredReceipts.length === 0 && (
+                <p className="journal-empty-filter">この相談科目の仕訳はまだありません。</p>
+              )}
             </div>
           </section>
         </>
@@ -2384,9 +2549,9 @@ function BottomNav({
   onChange: (tab: TabKey) => void;
 }) {
   const tabs: Array<{ key: TabKey; icon: ReactNode }> = [
-    { key: "home", icon: <ReceiptText size={20} /> },
-    { key: "receipts", icon: <ReceiptText size={20} /> },
+    { key: "receipt", icon: <ReceiptText size={20} /> },
     { key: "journal", icon: <NotebookTabs size={20} /> },
+    { key: "receipts", icon: <BookOpenText size={20} /> },
     { key: "analysis", icon: <CalendarDays size={20} /> },
   ];
 

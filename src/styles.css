@@ -104,6 +104,15 @@ button {
   letter-spacing: 0;
 }
 
+.brand-button {
+  padding: 0;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
 .eyebrow {
   margin: 0;
   color: #2563eb;
@@ -136,6 +145,171 @@ button {
 .stack {
   display: grid;
   gap: 18px;
+}
+
+.home-screen {
+  display: grid;
+  gap: 18px;
+}
+
+.home-hero {
+  display: grid;
+  gap: 16px;
+  padding: 26px 24px;
+  border-radius: 30px;
+  color: #ffffff;
+  background:
+    linear-gradient(135deg, rgba(30, 64, 175, 0.98), rgba(14, 165, 233, 0.9)),
+    #1d4ed8;
+  box-shadow: 0 20px 46px rgba(37, 99, 235, 0.24);
+  position: relative;
+  overflow: hidden;
+}
+
+.home-hero::after {
+  content: "";
+  position: absolute;
+  right: -52px;
+  bottom: -70px;
+  width: 210px;
+  height: 210px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.home-hero h2,
+.home-hero p,
+.home-actions,
+.home-helper {
+  position: relative;
+  z-index: 1;
+}
+
+.home-hero h2 {
+  margin: 8px 0 0;
+  max-width: 330px;
+  font-size: 31px;
+  line-height: 1.28;
+  letter-spacing: 0;
+}
+
+.home-hero p:not(.eyebrow) {
+  margin: 0;
+  max-width: 340px;
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.7;
+}
+
+.home-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.home-hero .primary-action {
+  background: #ffffff;
+  color: #1d4ed8;
+  box-shadow: 0 14px 26px rgba(15, 23, 42, 0.16);
+}
+
+.home-secondary-action {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.home-helper {
+  font-size: 12px !important;
+  color: rgba(255, 255, 255, 0.76) !important;
+}
+
+.home-recent-card,
+.home-flow-card {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 22px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.home-section-heading h3 {
+  margin: 4px 0 0;
+  color: #0f172a;
+  font-size: 18px;
+  line-height: 1.35;
+}
+
+.home-recent-receipt {
+  display: grid;
+  gap: 6px;
+  padding: 14px;
+  border-radius: 18px;
+  background: #f8fbff;
+  border: 1px solid rgba(37, 99, 235, 0.1);
+}
+
+.home-recent-receipt span {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.home-recent-receipt strong {
+  color: #0f172a;
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.home-recent-receipt small,
+.home-empty-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.home-flow-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-flow-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  color: #334155;
+  background: #f8fafc;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.home-flow-list span {
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  color: #ffffff;
+  background: #2563eb;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+}
+
+.home-dev-tools {
+  margin-top: -2px;
 }
 
 .product-hero {
@@ -702,6 +876,11 @@ button {
   outline-offset: 3px;
 }
 
+.receipt-import-actions {
+  display: grid;
+  gap: 10px;
+}
+
 .candidate-message {
   display: flex;
   align-items: flex-start;
@@ -1107,6 +1286,20 @@ button {
   box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
 }
 
+.saved-ledger-item.expanded {
+  border-color: rgba(37, 99, 235, 0.24);
+  box-shadow: 0 12px 26px rgba(37, 99, 235, 0.08);
+}
+
+.saved-ledger-item .ledger-detail-card {
+  margin-top: 2px;
+  padding: 12px;
+  border-radius: 14px;
+  background: #eff6ff;
+  border-color: rgba(37, 99, 235, 0.16);
+  box-shadow: none;
+}
+
 .saved-ledger-item > div:first-child {
   display: grid;
   gap: 4px;
@@ -1156,6 +1349,47 @@ button {
 .journal-list {
   display: grid;
   gap: 12px;
+}
+
+.journal-subcopy {
+  margin: 8px 0 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.6;
+}
+
+.journal-score-guide {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding: 14px;
+  border-radius: 20px;
+  background: #ffffff;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.journal-score-guide article {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #f8fbff;
+}
+
+.journal-score-guide strong {
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.journal-score-guide p {
+  margin: 0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.5;
 }
 
 .thought-transaction-card,
@@ -1260,7 +1494,8 @@ button {
 }
 
 .journal-entry-head span,
-.journal-category-select span {
+.journal-category-select span,
+.journal-filter span {
   color: #2563eb;
   font-size: 11px;
   font-weight: 900;
@@ -1271,12 +1506,29 @@ button {
   font-size: 15px;
   line-height: 1.45;
 }
+.journal-category-chip {
+  width: fit-content;
+  margin: 0;
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 11px;
+  font-weight: 900;
+}
 
+.journal-list-heading {
+  display: grid;
+  gap: 10px;
+}
+
+.journal-filter,
 .journal-category-select {
   display: grid;
   gap: 6px;
 }
 
+.journal-filter select,
 .journal-category-select select {
   width: 100%;
   border: 1px solid rgba(37, 99, 235, 0.2);
@@ -1322,7 +1574,7 @@ button {
 
 .journal-amount-strip {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 6px;
 }
 
@@ -1350,6 +1602,56 @@ button {
   font-weight: 900;
 }
 
+.journal-edit-panel {
+  display: grid;
+  gap: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  background: #eff6ff;
+  border: 1px solid rgba(37, 99, 235, 0.16);
+}
+
+.journal-score-edit-list {
+  display: grid;
+  gap: 10px;
+}
+
+.journal-score-edit {
+  display: grid;
+  gap: 7px;
+  padding: 10px;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.journal-score-edit > span {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.journal-score-edit > span strong {
+  color: #2563eb;
+  font-size: 15px;
+}
+
+.journal-score-edit input {
+  width: 100%;
+  accent-color: #2563eb;
+}
+
+.journal-score-edit small,
+.journal-empty-filter {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.5;
+}
 .journal-entry-detail {
   display: grid;
   gap: 8px;

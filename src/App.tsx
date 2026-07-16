@@ -10,6 +10,7 @@ import {
   ChevronRight,
   Clock3,
   Coins,
+  Download,
   Home,
   LineChart,
   NotebookTabs,
@@ -1025,6 +1026,18 @@ function App() {
     }
   }
 
+  async function saveM02ReceiptImage() {
+    if (!issuedReceipt || !receiptUrl) return;
+
+    try {
+      const imageUrl = await createM02ReceiptImage(issuedReceipt, receiptUrl);
+      downloadDataUrl(imageUrl, `${issuedReceipt.receiptNo}-m02.png`);
+      setReceiptActionMessage("M02用PNG画像を保存しました");
+    } catch {
+      setReceiptActionMessage("M02用画像を保存できませんでした。QRコード生成後にもう一度試してください。");
+    }
+  }
+
   return (
     <div className={isPosterMode ? "app-shell poster-mode" : "app-shell"}>
       <main className="phone-frame">
@@ -1109,6 +1122,7 @@ function App() {
                   onSave={saveIssuedReceiptToLedger}
                   onPrint={printIssuedReceipt}
                   onCopyUrl={copyReceiptUrl}
+                  onSaveM02Image={saveM02ReceiptImage}
                 />
             </section>
           )}
@@ -1806,6 +1820,7 @@ function IssuedReceiptPanel({
   onSave,
   onPrint,
   onCopyUrl,
+  onSaveM02Image,
 }: {
   receipt: IssuedThinkingReceipt;
   receiptUrl: string;
@@ -1816,6 +1831,7 @@ function IssuedReceiptPanel({
   onSave: () => void;
   onPrint: () => void;
   onCopyUrl: () => void;
+  onSaveM02Image: () => void;
 }) {
   return (
     <section className="issued-receipt-panel">
@@ -1882,6 +1898,10 @@ function IssuedReceiptPanel({
         帳簿に保存する
       </button>
       <div className="issued-receipt-actions">
+        <button className="secondary-action" type="button" onClick={onSaveM02Image}>
+          <Download size={17} />
+          M02用画像を保存
+        </button>
         <button className="secondary-action" type="button" onClick={onPrint}>
           印刷する
         </button>
@@ -1921,6 +1941,193 @@ function ReceiptInfoRow({
       <strong className="receipt-value-print">{printValue ?? value}</strong>
     </div>
   );
+}
+
+async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl: string) {
+  const width = 424;
+  const padding = 24;
+  const contentWidth = width - padding * 2;
+  const qrSize = 172;
+  const lineGap = 8;
+  const blockGap = 14;
+  const separatorGap = 12;
+  const summary = buildM02ReceiptSummary(receipt);
+  const rows = [
+    { label: "相談テーマ", value: receipt.topic, maxLines: 2 },
+    { label: "AIに求めた役割", value: normalizeAiRole(receipt.aiRole), maxLines: 1 },
+    { label: "相談科目", value: receipt.consultationCategory, maxLines: 1 },
+    { label: "AI借入", value: `${receipt.thinkingAmount.aiBorrowing}`, maxLines: 1 },
+    { label: "自己出資", value: `${receipt.thinkingAmount.selfInvestment}`, maxLines: 1 },
+    { label: "思考資産", value: `${receipt.thinkingAmount.thinkingAsset}`, maxLines: 1 },
+    {
+      label: "自己判断残高",
+      value: `${receipt.thinkingAmount.selfJudgmentBalance}`,
+      maxLines: 1,
+    },
+    { label: "ひとこと要約", value: summary, maxLines: 2 },
+  ];
+
+  const measureCanvas = document.createElement("canvas");
+  const measureContext = getCanvasContext(measureCanvas);
+  const measuredRows = rows.map((row) => {
+    measureContext.font = '15px "Yu Gothic", Meiryo, sans-serif';
+    return {
+      ...row,
+      lines: wrapCanvasText(measureContext, row.value, contentWidth, row.maxLines),
+    };
+  });
+
+  const rowHeight = measuredRows.reduce(
+    (sum, row) => sum + 18 + row.lines.length * 21 + lineGap,
+    0,
+  );
+  const height =
+    padding +
+    30 +
+    24 +
+    separatorGap * 3 +
+    rowHeight +
+    blockGap * 3 +
+    qrSize +
+    42 +
+    padding;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = getCanvasContext(canvas);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, width, height);
+  context.textBaseline = "top";
+  context.fillStyle = "#000000";
+
+  let y = padding;
+  context.textAlign = "center";
+  context.font = 'bold 19px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("私とAIの確定申告", width / 2, y);
+  y += 28;
+  context.font = 'bold 24px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("思考レシート", width / 2, y);
+  y += 38;
+  y = drawM02Separator(context, padding, y, contentWidth);
+
+  context.textAlign = "left";
+  measuredRows.forEach((row) => {
+    context.font = 'bold 12px "Yu Gothic", Meiryo, sans-serif';
+    context.fillText(row.label, padding, y);
+    y += 18;
+    context.font = '15px "Yu Gothic", Meiryo, sans-serif';
+    row.lines.forEach((line) => {
+      context.fillText(line, padding, y);
+      y += 21;
+    });
+    y += lineGap;
+  });
+
+  y = drawM02Separator(context, padding, y + 2, contentWidth);
+
+  const qrDataUrl = await QRCode.toDataURL(receiptUrl, {
+    errorCorrectionLevel: "M",
+    margin: 2,
+    width: qrSize,
+  });
+  const qrImage = await loadImage(qrDataUrl);
+  const qrX = Math.round((width - qrSize) / 2);
+  context.drawImage(qrImage, qrX, y, qrSize, qrSize);
+  y += qrSize + 12;
+
+  context.textAlign = "center";
+  context.font = '12px "Yu Gothic", Meiryo, sans-serif';
+  wrapCanvasText(context, "QRから詳細な思考レシートに戻れます", contentWidth, 2).forEach((line) => {
+    context.fillText(line, width / 2, y);
+    y += 17;
+  });
+  y = drawM02Separator(context, padding, y + 8, contentWidth);
+  context.font = 'bold 13px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("考えたあとに、レシートが出る。", width / 2, y);
+
+  return canvas.toDataURL("image/png");
+}
+
+function buildM02ReceiptSummary(receipt: IssuedThinkingReceipt) {
+  const source =
+    receipt.selfDecision && !receipt.selfDecision.includes("まだ明確な判断")
+      ? receipt.selfDecision
+      : receipt.aiAdded || receipt.topic;
+  return shortenForPrint(source, 44);
+}
+
+function drawM02Separator(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+) {
+  context.save();
+  context.strokeStyle = "#000000";
+  context.setLineDash([4, 4]);
+  context.beginPath();
+  context.moveTo(x, y);
+  context.lineTo(x + width, y);
+  context.stroke();
+  context.restore();
+  return y + 16;
+}
+
+function wrapCanvasText(
+  context: CanvasRenderingContext2D,
+  text: string,
+  maxWidth: number,
+  maxLines: number,
+) {
+  const chars = Array.from(compactText(text));
+  const lines: string[] = [];
+  let current = "";
+
+  chars.forEach((char) => {
+    const next = `${current}${char}`;
+    if (context.measureText(next).width <= maxWidth || !current) {
+      current = next;
+      return;
+    }
+    lines.push(current);
+    current = char;
+  });
+
+  if (current) lines.push(current);
+  if (lines.length <= maxLines) return lines;
+
+  const limited = lines.slice(0, maxLines);
+  let lastLine = limited[limited.length - 1] ?? "";
+  while (lastLine && context.measureText(`${lastLine}…`).width > maxWidth) {
+    lastLine = lastLine.slice(0, -1);
+  }
+  limited[limited.length - 1] = `${lastLine}…`;
+  return limited;
+}
+
+function getCanvasContext(canvas: HTMLCanvasElement) {
+  const context = canvas.getContext("2d");
+  if (!context) throw new Error("Canvas is not available");
+  return context;
+}
+
+function loadImage(src: string) {
+  return new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Image load failed"));
+    image.src = src;
+  });
+}
+
+function downloadDataUrl(dataUrl: string, filename: string) {
+  const link = document.createElement("a");
+  link.href = dataUrl;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
 }
 
 function shortenForPrint(value: string, maxLength = 46) {

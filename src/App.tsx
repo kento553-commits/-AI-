@@ -96,16 +96,45 @@ const DRAFT_QUERY_KEY = "draft";
 const POSTER_QUERY_KEY = "poster";
 
 const aiRoleOptions = [
-  "壁打ち相手",
-  "調査役",
-  "先生",
-  "編集者",
-  "デザイナー",
-  "カウンセラー",
-  "参謀",
-  "相棒",
+  "相談相手",
+  "情報を調べる補助",
+  "文章を整える補助",
+  "アイデア出しの相手",
+  "比較・判断の補助",
+  "学習サポート",
+  "作業のたたき台作成",
   "その他",
 ];
+
+const aiRoleDescriptions: Record<string, string> = {
+  相談相手: "考えを一緒に整理してもらった",
+  情報を調べる補助: "必要な情報や前提を集めてもらった",
+  文章を整える補助: "文章・説明文・ESなどを整えてもらった",
+  アイデア出しの相手: "案や切り口を広げてもらった",
+  "比較・判断の補助": "選択肢や判断材料を出してもらった",
+  学習サポート: "分からない内容を説明してもらった",
+  作業のたたき台作成: "最初の案や下書きを作ってもらった",
+  その他: "上記に当てはまらない使い方",
+};
+
+const legacyAiRoleMap: Record<string, string> = {
+  壁打ち相手: "相談相手",
+  相談役: "相談相手",
+  参謀: "相談相手",
+  カウンセラー: "相談相手",
+  相棒: "相談相手",
+  親友: "相談相手",
+  鏡: "相談相手",
+  調査役: "情報を調べる補助",
+  調査補助: "情報を調べる補助",
+  情報整理: "情報を調べる補助",
+  編集者: "文章を整える補助",
+  文章構成: "文章を整える補助",
+  アイデア出し: "アイデア出しの相手",
+  デザイナー: "アイデア出しの相手",
+  先生: "学習サポート",
+  助手: "作業のたたき台作成",
+};
 
 const feelingAfterOptions = [
   "すっきりした",
@@ -186,7 +215,7 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     conversationDate: "2026/07/07 09:40",
     consultationCategory: "制作・企画",
     topic: "作品コンセプトの整理",
-    aiRole: "壁打ち相手",
+    aiRole: "相談相手",
     aiAdded: "レシート・帳簿・確定申告という体験構造を整理した",
     selfDecision: "思考レシートを主役にし、紙とデジタルをつなぐサービスとして見せることに決めた",
     feelingAfter: "考えが広がった",
@@ -206,7 +235,7 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     conversationDate: "2026/07/07 10:55",
     consultationCategory: "制作・企画",
     topic: "A3ポスターの構成",
-    aiRole: "文章構成",
+    aiRole: "文章を整える補助",
     aiAdded: "ポスター内の情報の優先順位と、画面候補の見せる順番を整理した",
     selfDecision: "発行済みレシート画面をメインビジュアルにすることに決めた",
     feelingAfter: "すっきりした",
@@ -226,7 +255,7 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     conversationDate: "2026/07/06 16:05",
     consultationCategory: "調査・情報整理",
     topic: "レシート印刷体験の検討",
-    aiRole: "情報整理",
+    aiRole: "情報を調べる補助",
     aiAdded: "80mm印刷、QRコード、紙で持ち帰る体験の確認項目を整理した",
     selfDecision: "紙レシートとWeb記録をQRでつなぐ体験にすることに決めた",
     feelingAfter: "安心した",
@@ -246,7 +275,7 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     conversationDate: "2026/07/06 20:50",
     consultationCategory: "感情整理",
     topic: "AIとの距離感の言語化",
-    aiRole: "アイデア出し",
+    aiRole: "アイデア出しの相手",
     aiAdded: "AI依存ではなく、AIとの関係を記録するという視点を広げた",
     selfDecision: "AIを責める表現ではなく、使いっぱなしにしない表現にした",
     feelingAfter: "考えが広がった",
@@ -266,7 +295,7 @@ const sampleThinkingLedgerReceipts: IssuedThinkingReceipt[] = [
     conversationDate: "2026/07/05 17:45",
     consultationCategory: "文章作成",
     topic: "応募文の整理",
-    aiRole: "調査補助",
+    aiRole: "情報を調べる補助",
     aiAdded: "作品説明に必要な背景、体験価値、実装済み機能を確認した",
     selfDecision: "最終的な言葉は自分の体験に合わせて書き直した",
     feelingAfter: "すっきりした",
@@ -288,7 +317,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "21:30",
     topic: "企画制作について相談",
     category: "企画・制作",
-    aiRole: "相棒",
+    aiRole: "相談相手",
     aiScreenTimeMinutes: 18,
     gained: "アイデア整理",
     feelingBefore: "迷い",
@@ -303,7 +332,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "23:05",
     topic: "レポート構成の相談",
     category: "課題・レポート",
-    aiRole: "先生",
+    aiRole: "学習サポート",
     aiScreenTimeMinutes: 24,
     gained: "論点の整理",
     feelingBefore: "焦り",
@@ -318,7 +347,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "18:20",
     topic: "友人への返信文を考える",
     category: "人間関係",
-    aiRole: "鏡",
+    aiRole: "相談相手",
     aiScreenTimeMinutes: 12,
     gained: "言い方の調整",
     feelingBefore: "もやもや",
@@ -333,7 +362,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "16:10",
     topic: "インターン先の選び方",
     category: "進路・将来",
-    aiRole: "相談役",
+    aiRole: "相談相手",
     aiScreenTimeMinutes: 31,
     gained: "比較軸",
     feelingBefore: "不安",
@@ -348,7 +377,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "09:45",
     topic: "プレゼン原稿の言い換え",
     category: "文章作成",
-    aiRole: "助手",
+    aiRole: "作業のたたき台作成",
     aiScreenTimeMinutes: 16,
     gained: "表現の候補",
     feelingBefore: "硬さ",
@@ -363,7 +392,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "22:15",
     topic: "眠る前の気持ちを整理",
     category: "感情整理",
-    aiRole: "カウンセラー",
+    aiRole: "相談相手",
     aiScreenTimeMinutes: 21,
     gained: "気持ちの変化",
     feelingBefore: "疲れ",
@@ -378,7 +407,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "14:00",
     topic: "新しいサービス事例を調べる",
     category: "調べもの",
-    aiRole: "助手",
+    aiRole: "作業のたたき台作成",
     aiScreenTimeMinutes: 27,
     gained: "比較メモ",
     feelingBefore: "散らかり",
@@ -393,7 +422,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "12:40",
     topic: "買うか迷っている教材の相談",
     category: "日常判断",
-    aiRole: "親友",
+    aiRole: "相談相手",
     aiScreenTimeMinutes: 9,
     gained: "判断材料",
     feelingBefore: "迷い",
@@ -408,7 +437,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "20:10",
     topic: "企画タイトル案を出す",
     category: "企画・制作",
-    aiRole: "相棒",
+    aiRole: "相談相手",
     aiScreenTimeMinutes: 34,
     gained: "発想の広がり",
     feelingBefore: "停滞",
@@ -423,7 +452,7 @@ const initialReceipts: ThoughtReceipt[] = [
     time: "08:25",
     topic: "ゼミで話す内容の確認",
     category: "課題・レポート",
-    aiRole: "先生",
+    aiRole: "学習サポート",
     aiScreenTimeMinutes: 15,
     gained: "要点確認",
     feelingBefore: "緊張",
@@ -440,7 +469,7 @@ const sampleScannedReceipt: ThoughtReceipt = {
   time: "22:10",
   topic: "アプリの機能追加について相談",
   category: "企画・制作",
-  aiRole: "相談役",
+  aiRole: "相談相手",
   aiScreenTimeMinutes: 22,
   gained: "実装手順の整理",
   feelingBefore: "少し不安",
@@ -456,12 +485,12 @@ const previousSettlement = {
   description:
     "5月に記録された思考レシートから、AIとの関わり方と自分に残った判断をまとめました。",
   summary:
-    "5月は、課題・レポートと文章作成の相談が中心でした。AIには先生や助手の役割を求める場面が多く、考えを整えてから自分の言葉で提出物に落とし込む流れが残っています。",
+    "5月は、課題・レポートと文章作成の相談が中心でした。AIには学習サポートや作業のたたき台作成の役割を求める場面が多く、考えを整えてから自分の言葉で提出物に落とし込む流れが残っています。",
   metrics: [
     { label: "AIスクリーンタイム", value: "2時間53分" },
     { label: "思考レシート", value: "9枚" },
     { label: "主要相談科目", value: "課題・レポート" },
-    { label: "よく求めた役割", value: "先生" },
+    { label: "よく求めた役割", value: "学習サポート" },
   ],
   balances: [
     "自己判断残高：8件",
@@ -1614,8 +1643,9 @@ function ConversationCandidateForm({
       <CandidateFieldControl
         label="AIに求めた役割"
         field="aiRole"
-        value={candidate.aiRole}
+        value={normalizeAiRole(candidate.aiRole)}
         options={aiRoleOptions}
+        optionDescriptions={aiRoleDescriptions}
         onChange={onChange}
       />
       <CandidateFieldControl
@@ -1703,6 +1733,7 @@ function CandidateFieldControl({
   field,
   value,
   options,
+  optionDescriptions,
   multiline,
   onChange,
 }: {
@@ -1710,6 +1741,7 @@ function CandidateFieldControl({
   field: CandidateField;
   value: string;
   options?: string[];
+  optionDescriptions?: Record<string, string>;
   multiline?: boolean;
   onChange: (field: CandidateField, value: string) => void;
 }) {
@@ -1730,6 +1762,9 @@ function CandidateFieldControl({
             </option>
           ))}
         </select>
+        {optionDescriptions?.[value] && (
+          <small className="candidate-field-help">{optionDescriptions[value]}</small>
+        )}
       </label>
     );
   }
@@ -1796,7 +1831,7 @@ function IssuedReceiptPanel({
         <ReceiptInfoRow label="会話日時" value={receipt.conversationDate} />
         <ReceiptInfoRow label="相談科目" value={receipt.consultationCategory} />
         <ReceiptInfoRow label="相談テーマ" value={receipt.topic} />
-        <ReceiptInfoRow label="AIに求めた役割" value={receipt.aiRole} />
+        <ReceiptInfoRow label="AIに求めた役割" value={normalizeAiRole(receipt.aiRole)} />
         <ReceiptInfoRow
           label="AIが足したこと"
           value={receipt.aiAdded}
@@ -1952,7 +1987,7 @@ function LedgerReceiptDetail({
         <ConfirmRow label="会話日時" value={receipt.conversationDate} />
         <ConfirmRow label="相談科目" value={receipt.consultationCategory} />
         <ConfirmRow label="相談テーマ" value={receipt.topic} />
-        <ConfirmRow label="AIに求めた役割" value={receipt.aiRole} />
+        <ConfirmRow label="AIに求めた役割" value={normalizeAiRole(receipt.aiRole)} />
         <ConfirmRow label="AIが足したこと" value={receipt.aiAdded} />
         <ConfirmRow label="自分で決めたこと" value={receipt.selfDecision} />
         <ConfirmRow label="会話後の気持ち" value={receipt.feelingAfter} />
@@ -2022,7 +2057,7 @@ function SavedLedgerList({
                       </div>
                       <div>
                         <dt>aiRole</dt>
-                        <dd>{receipt.aiRole}</dd>
+                        <dd>{normalizeAiRole(receipt.aiRole)}</dd>
                       </div>
                       <div>
                         <dt>thinkingBalance</dt>
@@ -2443,7 +2478,7 @@ function ReceiptReaderModal({
               <ConfirmRow label="時間" value={receipt.time} />
               <ConfirmRow label="相談テーマ" value={receipt.topic} />
               <ConfirmRow label="相談科目" value={receipt.category} />
-              <ConfirmRow label="AIに求めた役割" value={receipt.aiRole} />
+              <ConfirmRow label="AIに求めた役割" value={normalizeAiRole(receipt.aiRole)} />
               <ConfirmRow label="AIスクリーンタイム" value={`${receipt.aiScreenTimeMinutes}分`} />
               <ConfirmRow label="思考収入" value={receipt.gained} />
               <ConfirmRow label="会話前の気持ち" value={receipt.feelingBefore} />
@@ -2522,7 +2557,7 @@ function ReceiptDetailModal({
             <ConfirmRow label="時間" value={receipt.time} />
             <ConfirmRow label="相談テーマ" value={receipt.topic} />
             <ConfirmRow label="相談科目" value={receipt.category} />
-            <ConfirmRow label="AIに求めた役割" value={receipt.aiRole} />
+            <ConfirmRow label="AIに求めた役割" value={normalizeAiRole(receipt.aiRole)} />
             <ConfirmRow label="AIスクリーンタイム" value={`${receipt.aiScreenTimeMinutes}分`} />
             <ConfirmRow label="思考収入" value={receipt.gained} />
             <ConfirmRow label="会話前の気持ち" value={receipt.feelingBefore} />
@@ -2662,7 +2697,7 @@ function MiniReceipt({
         <span className="date">{formatDate(receipt.date)}</span>
         <strong>{receipt.topic}</strong>
         <p>
-          {receipt.category} / {receipt.aiRole}
+          {receipt.category} / {normalizeAiRole(receipt.aiRole)}
         </p>
       </div>
       <ChevronRight size={18} />
@@ -2701,7 +2736,7 @@ function ReceiptRow({
 
       <div className="receipt-meta">
         <span>{receipt.category}</span>
-        <span>{receipt.aiRole}</span>
+        <span>{normalizeAiRole(receipt.aiRole)}</span>
         <span>{receipt.aiScreenTimeMinutes}分</span>
       </div>
 
@@ -2952,29 +2987,26 @@ function inferAiService(raw: RawConversation) {
 
 function inferAiRole(text: string) {
   const lower = text.toLowerCase();
-  if (hasAny(lower, ["デザイン", "ファーストビュー", "ui", "ux", "コピー", "導線", "layout"])) {
-    return "デザイナー";
+  if (hasAny(lower, ["調査", "調べ", "リサーチ", "出典", "source", "research", "情報収集"])) {
+    return "情報を調べる補助";
   }
-  if (hasAny(lower, ["調査", "調べ", "リサーチ", "出典", "source", "research"])) {
-    return "調査役";
+  if (hasAny(lower, ["編集", "校正", "文章", "言い換え", "応募文", "説明文", "es", "rewrite", "edit"])) {
+    return "文章を整える補助";
   }
   if (hasAny(lower, ["教えて", "説明", "学習", "先生", "lecture", "explain"])) {
-    return "先生";
+    return "学習サポート";
   }
-  if (hasAny(lower, ["編集", "校正", "文章", "言い換え", "rewrite", "edit"])) {
-    return "編集者";
+  if (hasAny(lower, ["比較", "選択肢", "判断", "意思決定", "決める", "選ぶ", "戦略", "方針", "優先"])) {
+    return "比較・判断の補助";
   }
-  if (hasAny(lower, ["不安", "気持ち", "悩み", "相談", "安心", "つらい"])) {
-    return "カウンセラー";
+  if (hasAny(lower, ["たたき台", "下書き", "ドラフト", "雛形", "初稿", "template", "draft"])) {
+    return "作業のたたき台作成";
   }
-  if (hasAny(lower, ["戦略", "方針", "優先", "意思決定", "判断", "計画"])) {
-    return "参謀";
+  if (hasAny(lower, ["アイデア", "案", "切り口", "デザイン", "ファーストビュー", "ui", "ux", "導線", "layout"])) {
+    return "アイデア出しの相手";
   }
-  if (hasAny(lower, ["一緒に", "相棒", "伴走", "ペア"])) {
-    return "相棒";
-  }
-  if (hasAny(lower, ["壁打ち", "案", "アイデア", "整理"])) {
-    return "壁打ち相手";
+  if (hasAny(lower, ["不安", "気持ち", "悩み", "相談", "安心", "つらい", "壁打ち", "一緒に", "伴走", "整理"])) {
+    return "相談相手";
   }
   return "その他";
 }
@@ -3142,6 +3174,12 @@ function hasAny(text: string, keywords: string[]) {
   return keywords.some((keyword) => text.includes(keyword));
 }
 
+function normalizeAiRole(value = "") {
+  const role = compactText(value);
+  if (!role) return "その他";
+  return legacyAiRoleMap[role] ?? (aiRoleOptions.includes(role) ? role : "その他");
+}
+
 function summarizeText(text: string, maxLength: number) {
   const compacted = compactText(text);
   if (compacted.length <= maxLength) return compacted;
@@ -3161,11 +3199,13 @@ function formatCurrentConversationDate() {
 }
 
 function createIssuedReceipt(candidate: ThoughtReceiptCandidate): IssuedThinkingReceipt {
+  const aiRole = normalizeAiRole(candidate.aiRole);
   return {
     ...candidate,
+    aiRole,
     consultationCategory:
       candidate.consultationCategory ||
-      inferConsultationCategory(candidate.topic, candidate.aiRole, candidate.selfDecision),
+      inferConsultationCategory(candidate.topic, aiRole, candidate.selfDecision),
     thinkingAmount: normalizeThinkingAmount(candidate.thinkingAmount),
     receiptNo: `TR-${Date.now().toString(36).toUpperCase()}`,
     issuedAt: formatCurrentConversationDate(),
@@ -3173,14 +3213,15 @@ function createIssuedReceipt(candidate: ThoughtReceiptCandidate): IssuedThinking
 }
 
 function toReceiptCandidate(receipt: IssuedThinkingReceipt): ThoughtReceiptCandidate {
+  const aiRole = normalizeAiRole(receipt.aiRole);
   return {
     aiService: receipt.aiService,
     conversationDate: receipt.conversationDate,
     consultationCategory:
       receipt.consultationCategory ||
-      inferConsultationCategory(receipt.topic, receipt.aiRole, receipt.selfDecision),
+      inferConsultationCategory(receipt.topic, aiRole, receipt.selfDecision),
     topic: receipt.topic,
-    aiRole: receipt.aiRole,
+    aiRole,
     aiAdded: receipt.aiAdded,
     selfDecision: receipt.selfDecision,
     feelingAfter: receipt.feelingAfter,
@@ -3365,6 +3406,7 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
     requiredFields.every((key) => typeof target[key] === "string");
 
   if (!isValid) return null;
+  const aiRole = normalizeAiRole(String(target.aiRole));
 
   return {
     receiptNo,
@@ -3376,11 +3418,11 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
         ? target.consultationCategory
         : inferConsultationCategory(
             String(target.topic),
-            String(target.aiRole),
+            aiRole,
             String(target.selfDecision),
           ),
     topic: target.topic,
-    aiRole: target.aiRole,
+    aiRole,
     aiAdded: target.aiAdded,
     selfDecision: target.selfDecision,
     feelingAfter: target.feelingAfter,
@@ -3389,7 +3431,7 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
       target.thinkingAmount,
       inferThinkingAmount({
         topic: String(target.topic),
-        aiRole: String(target.aiRole),
+        aiRole,
         aiAdded: String(target.aiAdded),
         selfDecision: String(target.selfDecision),
         feelingAfter: String(target.feelingAfter),
@@ -3400,7 +3442,7 @@ function normalizeIssuedReceipt(receipt: unknown): IssuedThinkingReceipt | null 
 
 function buildLedgerStats(data: IssuedThinkingReceipt[]) {
   const serviceBreakdown = countLedgerValues(data.map((receipt) => receipt.aiService));
-  const roleBreakdown = countLedgerValues(data.map((receipt) => receipt.aiRole));
+  const roleBreakdown = countLedgerValues(data.map((receipt) => normalizeAiRole(receipt.aiRole)));
   const feelingBreakdown = countLedgerValues(data.map((receipt) => receipt.feelingAfter));
   const balanceBreakdown = countLedgerValues(data.map((receipt) => receipt.thinkingBalance));
   const thinkingAmountTotals = getThinkingAmountTotals(data);
@@ -3416,7 +3458,7 @@ function buildLedgerStats(data: IssuedThinkingReceipt[]) {
   );
   const topService = topLedgerCountLabel(data.map((receipt) => receipt.aiService));
   const topTopic = topLedgerCountLabel(data.map((receipt) => receipt.topic));
-  const topRole = topLedgerCountLabel(data.map((receipt) => receipt.aiRole));
+  const topRole = topLedgerCountLabel(data.map((receipt) => normalizeAiRole(receipt.aiRole)));
   const topFeeling = topLedgerCountLabel(data.map((receipt) => receipt.feelingAfter));
   const topBalance = topLedgerCountLabel(data.map((receipt) => receipt.thinkingBalance));
   const topConsultationCategory = topLedgerCountLabel(
@@ -3715,7 +3757,9 @@ function applyReceiptFilter(data: ThoughtReceipt[], filter: ReceiptFilter) {
     case "category":
       return data.filter((receipt) => receipt.category === filter.value);
     case "role":
-      return data.filter((receipt) => receipt.aiRole === filter.value);
+      return data.filter(
+        (receipt) => normalizeAiRole(receipt.aiRole) === normalizeAiRole(filter.value),
+      );
     case "moodChange":
       return data.filter(hasMoodChange);
     case "selfDecision":
@@ -3728,7 +3772,7 @@ function getFilterTitle(filter: ReceiptFilter) {
     case "category":
       return `相談科目：${filter.value} のレシート`;
     case "role":
-      return `AIに求めた役割：${filter.value} のレシート`;
+      return `AIに求めた役割：${normalizeAiRole(filter.value)} のレシート`;
     case "moodChange":
       return "気持ちの変化があったレシート";
     case "selfDecision":
@@ -3796,33 +3840,33 @@ function getDistanceSummary(data: ThoughtReceipt[]) {
 }
 
 function loadReceipts() {
-  if (typeof window === "undefined") return initialReceipts;
+  if (typeof window === "undefined") return initialReceipts.map(normalizeReceipt);
 
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return initialReceipts;
+    if (!stored) return initialReceipts.map(normalizeReceipt);
     const parsed = JSON.parse(stored) as ThoughtReceipt[];
-    if (!Array.isArray(parsed)) return initialReceipts;
+    if (!Array.isArray(parsed)) return initialReceipts.map(normalizeReceipt);
     return parsed.map(normalizeReceipt);
   } catch {
-    return initialReceipts;
+    return initialReceipts.map(normalizeReceipt);
   }
 }
 
 function normalizeReceipt(receipt: ThoughtReceipt): ThoughtReceipt {
-  const legacyAdvisorRole = "\u53c2\u8b00";
   const legacyMoodGain = "\u5b89\u5fc3\u9084\u4ed8";
 
   return {
     ...receipt,
-    aiRole: receipt.aiRole === legacyAdvisorRole ? "相談役" : receipt.aiRole,
+    aiRole: normalizeAiRole(receipt.aiRole),
     gained: receipt.gained === legacyMoodGain ? "気持ちの変化" : receipt.gained,
   };
 }
 
 function countBy<T extends keyof ThoughtReceipt>(data: ThoughtReceipt[], key: T) {
   return data.reduce<Record<string, number>>((acc, item) => {
-    const value = String(item[key]);
+    const rawValue = String(item[key]);
+    const value = key === "aiRole" ? normalizeAiRole(rawValue) : rawValue;
     acc[value] = (acc[value] ?? 0) + 1;
     return acc;
   }, {});

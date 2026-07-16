@@ -926,6 +926,14 @@ button {
   font-weight: 900;
 }
 
+.candidate-field-help {
+  margin: 0;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
 .candidate-field input,
 .candidate-field select,
 .candidate-field textarea {

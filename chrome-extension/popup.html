@@ -6,9 +6,9 @@
     <title>思考レシート</title>
     <style>
       body {
-        width: 280px;
+        width: 320px;
         margin: 0;
-        padding: 14px;
+        padding: 16px;
         color: #1e293b;
         background: #f8fafc;
         font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -16,8 +16,9 @@
 
       h1 {
         margin: 0 0 10px;
+        color: #0f172a;
         font-size: 16px;
-        line-height: 1.4;
+        line-height: 1.45;
       }
 
       button {
@@ -43,12 +44,21 @@
         font-size: 12px;
         line-height: 1.6;
       }
+
+      .notice {
+        padding: 10px;
+        border: 1px solid #bfdbfe;
+        border-radius: 10px;
+        color: #1e3a8a;
+        background: #eff6ff;
+      }
     </style>
   </head>
   <body>
-    <h1>AI会話を思考レシートへ</h1>
-    <button id="createReceipt" type="button">思考レシート化する</button>
-    <p id="status">現在のAI会話ページを読み取り、Webアプリで候補を開きます。</p>
+    <h1>ChatGPTの会話を思考レシートへ</h1>
+    <button id="createReceipt" type="button">この会話を思考レシートにする</button>
+    <p id="status">現在開いているChatGPTの会話を読み取り、Webアプリで候補フォームを開きます。</p>
+    <p class="notice">見られたくない会話や個人情報を含む会話では使わないでください。取得はこのボタンを押した時だけ行います。</p>
     <script src="popup.js"></script>
   </body>
 </html>

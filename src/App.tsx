@@ -94,6 +94,10 @@ const RAW_CONVERSATION_KEY = "aiConversationRaw";
 const THINKING_LEDGER_KEY = "thinkingLedger";
 const RECEIPT_HASH_KEY = "receipt";
 const DRAFT_QUERY_KEY = "draft";
+const EXTENSION_SOURCE_QUERY_KEY = "source";
+const EXTENSION_SOURCE_VALUE = "extension";
+const EXTENSION_CONVERSATION_MESSAGE = "AI_RECEIPT_DRAFT";
+const EXTENSION_CONVERSATION_ACK = "AI_RECEIPT_DRAFT_RECEIVED";
 const POSTER_QUERY_KEY = "poster";
 
 const aiRoleOptions = [
@@ -579,6 +583,7 @@ function App() {
   const [conversationCandidate, setConversationCandidate] =
     useState<ThoughtReceiptCandidate | null>(null);
   const [conversationMessage, setConversationMessage] = useState("");
+  const [pastedConversationText, setPastedConversationText] = useState("");
   const [candidateIssueMessage, setCandidateIssueMessage] = useState("");
   const [issuedReceipt, setIssuedReceipt] = useState<IssuedThinkingReceipt | null>(null);
   const [receiptUrl, setReceiptUrl] = useState("");
@@ -647,6 +652,44 @@ function App() {
     setActiveTab("receipt");
     scrollScreenToTop("auto");
     clearDraftQueryParam();
+  }, []);
+
+  useEffect(() => {
+    function handleExtensionConversation(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return;
+      if (!isExtensionConversationMessage(event.data)) return;
+
+      const extensionConversation = event.data.payload;
+
+      try {
+        localStorage.setItem(RAW_CONVERSATION_KEY, JSON.stringify(extensionConversation));
+      } catch {
+        // 拡張機能から受け取った会話は、localStorage に保存できない場合でも候補化します。
+      }
+
+      setConversationCandidate(classifyConversation(extensionConversation));
+      setConversationMessage(
+        "拡張機能から会話を読み込みました。内容を確認してから発行してください。",
+      );
+      setCandidateIssueMessage("");
+      setIssuedReceipt(null);
+      setLedgerMessage("");
+      setReceiptActionMessage("");
+      setIsSettlementOpen(false);
+      setActiveTab("receipt");
+      scrollScreenToTop("auto");
+      clearDraftQueryParam();
+
+      window.postMessage(
+        {
+          type: EXTENSION_CONVERSATION_ACK,
+        },
+        window.location.origin,
+      );
+    }
+
+    window.addEventListener("message", handleExtensionConversation);
+    return () => window.removeEventListener("message", handleExtensionConversation);
   }, []);
 
   useEffect(() => {
@@ -872,6 +915,34 @@ function App() {
     scrollScreenToTop("smooth");
   }
 
+  function loadPastedConversation() {
+    const text = pastedConversationText.trim();
+    if (!text) {
+      setConversationMessage("貼り付ける会話がまだ入力されていません。");
+      return;
+    }
+
+    const rawConversation = createRawConversationFromPastedText(text);
+
+    try {
+      localStorage.setItem(RAW_CONVERSATION_KEY, JSON.stringify(rawConversation));
+    } catch {
+      // 貼り付け内容からの候補作成自体は、localStorage に保存できない場合でも続けます。
+    }
+
+    setConversationCandidate(classifyConversation(rawConversation));
+    setCandidateIssueMessage("");
+    setIssuedReceipt(null);
+    setLedgerMessage("");
+    setReceiptActionMessage("");
+    setConversationMessage(
+      "貼り付けた会話から、思考レシート候補を作成しました。内容を確認してから発行してください。",
+    );
+    setIsSettlementOpen(false);
+    setActiveTab("receipt");
+    scrollScreenToTop("smooth");
+  }
+
   function resetDemoData() {
     if (!window.confirm("デモデータをリセットしますか？")) return;
 
@@ -884,6 +955,7 @@ function App() {
 
     setConversationCandidate(null);
     setConversationMessage("");
+    setPastedConversationText("");
     setCandidateIssueMessage("");
     setIssuedReceipt(null);
     setReceiptUrl("");
@@ -1086,6 +1158,35 @@ function App() {
                     サンプル会話を読み込む
                   </button>
                 </div>
+                <details className="paste-conversation-panel">
+                  <summary>拡張機能が使えない場合はこちら</summary>
+                  <div className="paste-conversation-body">
+                    <p>
+                      スマホでは拡張機能が使えない場合があります。ChatGPTとの会話をコピーして貼り付けることで、思考レシートを作成できます。
+                    </p>
+                    <label className="paste-conversation-field" htmlFor="pasted-conversation">
+                      <span>会話を貼り付ける</span>
+                      <textarea
+                        id="pasted-conversation"
+                        value={pastedConversationText}
+                        rows={7}
+                        placeholder={"例：\nUser: 作品コンセプトを整理したいです。\nChatGPT: レシート、仕訳、決算の流れで見せると伝わりやすいです。"}
+                        onChange={(event) => setPastedConversationText(event.target.value)}
+                      />
+                    </label>
+                    <p className="paste-conversation-warning">
+                      見られたくない会話や個人情報を含む会話は貼り付けないでください。確認して発行した会話だけが記録されます。
+                    </p>
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={loadPastedConversation}
+                      disabled={!pastedConversationText.trim()}
+                    >
+                      貼り付けた会話から候補を作成
+                    </button>
+                  </div>
+                </details>
                 {conversationMessage && (
                   <div className="candidate-message" role="status">
                     <CheckCircle2 size={18} />
@@ -1945,52 +2046,10 @@ function ReceiptInfoRow({
 
 async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl: string) {
   const width = 424;
-  const padding = 24;
+  const padding = 22;
   const contentWidth = width - padding * 2;
-  const qrSize = 172;
-  const lineGap = 8;
-  const blockGap = 14;
-  const separatorGap = 12;
-  const summary = buildM02ReceiptSummary(receipt);
-  const rows = [
-    { label: "相談テーマ", value: receipt.topic, maxLines: 2 },
-    { label: "AIに求めた役割", value: normalizeAiRole(receipt.aiRole), maxLines: 1 },
-    { label: "相談科目", value: receipt.consultationCategory, maxLines: 1 },
-    { label: "AI借入", value: `${receipt.thinkingAmount.aiBorrowing}`, maxLines: 1 },
-    { label: "自己出資", value: `${receipt.thinkingAmount.selfInvestment}`, maxLines: 1 },
-    { label: "思考資産", value: `${receipt.thinkingAmount.thinkingAsset}`, maxLines: 1 },
-    {
-      label: "自己判断残高",
-      value: `${receipt.thinkingAmount.selfJudgmentBalance}`,
-      maxLines: 1,
-    },
-    { label: "ひとこと要約", value: summary, maxLines: 2 },
-  ];
-
-  const measureCanvas = document.createElement("canvas");
-  const measureContext = getCanvasContext(measureCanvas);
-  const measuredRows = rows.map((row) => {
-    measureContext.font = '15px "Yu Gothic", Meiryo, sans-serif';
-    return {
-      ...row,
-      lines: wrapCanvasText(measureContext, row.value, contentWidth, row.maxLines),
-    };
-  });
-
-  const rowHeight = measuredRows.reduce(
-    (sum, row) => sum + 18 + row.lines.length * 21 + lineGap,
-    0,
-  );
-  const height =
-    padding +
-    30 +
-    24 +
-    separatorGap * 3 +
-    rowHeight +
-    blockGap * 3 +
-    qrSize +
-    42 +
-    padding;
+  const qrSize = 142;
+  const height = 1160;
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -2003,28 +2062,57 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
 
   let y = padding;
   context.textAlign = "center";
-  context.font = 'bold 19px "Yu Gothic", Meiryo, sans-serif';
-  context.fillText("私とAIの確定申告", width / 2, y);
-  y += 28;
-  context.font = 'bold 24px "Yu Gothic", Meiryo, sans-serif';
+  context.font = 'bold 28px "Yu Gothic", Meiryo, sans-serif';
   context.fillText("思考レシート", width / 2, y);
-  y += 38;
+  y += 36;
+  context.font = '13px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("AIとの対話から生まれた思考の明細", width / 2, y);
+  y += 24;
   y = drawM02Separator(context, padding, y, contentWidth);
 
+  y = drawM02TextBlock(context, "相談テーマ", receipt.topic, padding, y, contentWidth, {
+    maxLines: 2,
+    valueSize: 18,
+    bold: true,
+  });
+  y = drawM02KeyValue(context, "AIに求めた役割", normalizeAiRole(receipt.aiRole), padding, y, contentWidth);
+  y = drawM02HighlightBlock(context, "AIが足したこと", receipt.aiAdded, padding, y, contentWidth);
+  y = drawM02HighlightBlock(context, "自分で決めたこと", receipt.selfDecision, padding, y, contentWidth);
+  y = drawM02KeyValue(context, "会話後の気持ち", receipt.feelingAfter, padding, y, contentWidth, true);
+  y = drawM02Separator(context, padding, y + 4, contentWidth);
+
   context.textAlign = "left";
-  measuredRows.forEach((row) => {
-    context.font = 'bold 12px "Yu Gothic", Meiryo, sans-serif';
-    context.fillText(row.label, padding, y);
-    y += 18;
-    context.font = '15px "Yu Gothic", Meiryo, sans-serif';
-    row.lines.forEach((line) => {
-      context.fillText(line, padding, y);
-      y += 21;
-    });
-    y += lineGap;
+  context.font = 'bold 14px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("思考の数値", padding, y);
+  y += 24;
+  const scoreRows = [
+    ["AI借入", receipt.thinkingAmount.aiBorrowing, false],
+    ["自己出資", receipt.thinkingAmount.selfInvestment, false],
+    ["思考資産", receipt.thinkingAmount.thinkingAsset, false],
+    ["思考支出", receipt.thinkingAmount.thinkingExpense, false],
+    ["自己判断残高", receipt.thinkingAmount.selfJudgmentBalance, true],
+  ] as const;
+  scoreRows.forEach(([label, value, emphasize]) => {
+    y = drawM02ScoreRow(context, label, value, padding, y, contentWidth, emphasize);
   });
 
-  y = drawM02Separator(context, padding, y + 2, contentWidth);
+  y += 8;
+  y = drawM02TotalBox(
+    context,
+    getTotalThinkingAmount(receipt.thinkingAmount),
+    padding,
+    y,
+    contentWidth,
+  );
+  context.textAlign = "left";
+  context.font = '11px "Yu Gothic", Meiryo, sans-serif';
+  wrapCanvasText(context, "※対話内容をもとに、各項目を5段階で記録", contentWidth, 2).forEach(
+    (line) => {
+      context.fillText(line, padding, y);
+      y += 16;
+    },
+  );
+  y = drawM02Separator(context, padding, y + 8, contentWidth);
 
   const qrDataUrl = await QRCode.toDataURL(receiptUrl, {
     errorCorrectionLevel: "M",
@@ -2034,27 +2122,132 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
   const qrImage = await loadImage(qrDataUrl);
   const qrX = Math.round((width - qrSize) / 2);
   context.drawImage(qrImage, qrX, y, qrSize, qrSize);
-  y += qrSize + 12;
+  y += qrSize + 10;
 
   context.textAlign = "center";
-  context.font = '12px "Yu Gothic", Meiryo, sans-serif';
-  wrapCanvasText(context, "QRから詳細な思考レシートに戻れます", contentWidth, 2).forEach((line) => {
-    context.fillText(line, width / 2, y);
-    y += 17;
-  });
+  context.font = 'bold 15px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("紙から、思考の続きへ。", width / 2, y);
+  y += 24;
   y = drawM02Separator(context, padding, y + 8, contentWidth);
-  context.font = 'bold 13px "Yu Gothic", Meiryo, sans-serif';
+  context.font = 'bold 14px "Yu Gothic", Meiryo, sans-serif';
   context.fillText("考えたあとに、レシートが出る。", width / 2, y);
+  y += 26;
 
-  return canvas.toDataURL("image/png");
+  y = drawM02Separator(context, padding, y, contentWidth);
+  context.textAlign = "left";
+  context.font = '10px "Yu Gothic", Meiryo, sans-serif';
+  [
+    `使用AI ${receipt.aiService}`,
+    `発行日時 ${receipt.issuedAt}`,
+    `レシート番号 ${receipt.receiptNo}`,
+  ].forEach((line) => {
+    context.fillText(line, padding, y);
+    y += 14;
+  });
+
+  return cropCanvasToDataUrl(canvas, Math.min(Math.ceil(y + padding), height));
 }
 
-function buildM02ReceiptSummary(receipt: IssuedThinkingReceipt) {
-  const source =
-    receipt.selfDecision && !receipt.selfDecision.includes("まだ明確な判断")
-      ? receipt.selfDecision
-      : receipt.aiAdded || receipt.topic;
-  return shortenForPrint(source, 44);
+function drawM02TextBlock(
+  context: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  options: { maxLines: number; valueSize?: number; bold?: boolean },
+) {
+  context.textAlign = "left";
+  context.font = 'bold 11px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText(label, x, y);
+  y += 17;
+  context.font = `${options.bold ? "bold " : ""}${options.valueSize ?? 15}px "Yu Gothic", Meiryo, sans-serif`;
+  wrapCanvasText(context, value, width, options.maxLines).forEach((line) => {
+    context.fillText(line, x, y);
+    y += (options.valueSize ?? 15) + 6;
+  });
+  return y + 8;
+}
+
+function drawM02HighlightBlock(
+  context: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+) {
+  context.strokeStyle = "#000000";
+  context.lineWidth = 1;
+  context.strokeRect(x, y, width, 76);
+  return drawM02TextBlock(context, label, shortenForPrint(value, 52), x + 10, y + 9, width - 20, {
+    maxLines: 2,
+    valueSize: 15,
+    bold: true,
+  }) + 4;
+}
+
+function drawM02KeyValue(
+  context: CanvasRenderingContext2D,
+  label: string,
+  value: string,
+  x: number,
+  y: number,
+  width: number,
+  emphasize = false,
+) {
+  context.textAlign = "left";
+  context.font = 'bold 12px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText(label, x, y);
+  context.font = `${emphasize ? "bold " : ""}15px "Yu Gothic", Meiryo, sans-serif`;
+  context.textAlign = "right";
+  context.fillText(shortenForPrint(value, 18), x + width, y - 1);
+  return y + 28;
+}
+
+function drawM02ScoreRow(
+  context: CanvasRenderingContext2D,
+  label: string,
+  value: number,
+  x: number,
+  y: number,
+  width: number,
+  emphasize = false,
+) {
+  context.textAlign = "left";
+  context.font = `${emphasize ? "bold " : ""}14px "Yu Gothic", Meiryo, sans-serif`;
+  context.fillText(label, x, y);
+  context.textAlign = "right";
+  context.font = `bold ${emphasize ? 19 : 16}px "Yu Gothic", Meiryo, sans-serif`;
+  context.fillText(String(value), x + width, y - (emphasize ? 3 : 1));
+  context.strokeStyle = "#000000";
+  context.setLineDash([2, 4]);
+  context.beginPath();
+  context.moveTo(x, y + 23);
+  context.lineTo(x + width, y + 23);
+  context.stroke();
+  context.setLineDash([]);
+  return y + 28;
+}
+
+function drawM02TotalBox(
+  context: CanvasRenderingContext2D,
+  total: number,
+  x: number,
+  y: number,
+  width: number,
+) {
+  context.strokeStyle = "#000000";
+  context.lineWidth = 2;
+  context.strokeRect(x, y, width, 58);
+  context.textAlign = "left";
+  context.font = 'bold 18px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("思考量合計", x + 12, y + 17);
+  context.textAlign = "right";
+  context.font = 'bold 32px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText(String(total), x + width - 12, y + 10);
+  context.lineWidth = 1;
+  return y + 72;
 }
 
 function drawM02Separator(
@@ -2119,6 +2312,17 @@ function loadImage(src: string) {
     image.onerror = () => reject(new Error("Image load failed"));
     image.src = src;
   });
+}
+
+function cropCanvasToDataUrl(source: HTMLCanvasElement, height: number) {
+  const canvas = document.createElement("canvas");
+  canvas.width = source.width;
+  canvas.height = height;
+  const context = getCanvasContext(canvas);
+  context.fillStyle = "#ffffff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(source, 0, 0);
+  return canvas.toDataURL("image/png");
 }
 
 function downloadDataUrl(dataUrl: string, filename: string) {
@@ -3178,6 +3382,100 @@ function classifyConversation(raw: RawConversation): ThoughtReceiptCandidate {
   };
 }
 
+function createRawConversationFromPastedText(text: string): RawConversation {
+  const normalizedText = text.replace(/\r\n?/g, "\n").trim();
+  const messages = parsePastedConversationMessages(normalizedText);
+  const firstUserText = messages.find((message) => message.role === "user")?.text;
+  const firstLine = normalizedText
+    .split("\n")
+    .map((line) => compactText(line))
+    .find(Boolean);
+
+  return {
+    aiService: "ChatGPT",
+    url: "manual-paste",
+    capturedAt: formatCurrentConversationDate(),
+    conversationTitle: summarizeText(firstUserText || firstLine || "貼り付けた会話", 30),
+    messages,
+  };
+}
+
+function parsePastedConversationMessages(text: string): ConversationMessage[] {
+  const lines = text.split("\n");
+  const messages: ConversationMessage[] = [];
+  let currentRole: "user" | "assistant" | null = null;
+  let currentLines: string[] = [];
+
+  const pushCurrentMessage = () => {
+    const messageText = currentLines.join("\n").trim();
+    if (!currentRole || !messageText) return;
+    messages.push({
+      role: currentRole,
+      text: truncatePastedMessage(messageText),
+    });
+  };
+
+  lines.forEach((line) => {
+    const roleLine = parsePastedRoleLine(line);
+    if (roleLine) {
+      pushCurrentMessage();
+      currentRole = roleLine.role;
+      currentLines = roleLine.text ? [roleLine.text] : [];
+      return;
+    }
+
+    if (currentRole) {
+      currentLines.push(line);
+    }
+  });
+
+  pushCurrentMessage();
+
+  if (messages.length > 0) return messages.slice(-30);
+
+  return [
+    {
+      role: "user",
+      text: truncatePastedMessage(text),
+    },
+  ];
+}
+
+function parsePastedRoleLine(line: string) {
+  const trimmed = line.trim();
+  const patterns: Array<[RegExp, "user" | "assistant"]> = [
+    [/^(?:user|you|あなた|ユーザー|自分)(?:\s+said)?\s*[:：]\s*(.*)$/i, "user"],
+    [/^(?:chatgpt|assistant|ai|アシスタント|回答)(?:\s+said)?\s*[:：]\s*(.*)$/i, "assistant"],
+  ];
+
+  for (const [pattern, role] of patterns) {
+    const match = trimmed.match(pattern);
+    if (match) {
+      return {
+        role,
+        text: compactText(match[1] ?? ""),
+      };
+    }
+  }
+
+  if (/^(?:user|you said|あなた|ユーザー|自分)$/i.test(trimmed)) {
+    return { role: "user" as const, text: "" };
+  }
+
+  if (/^(?:chatgpt|assistant|ai|アシスタント|回答)$/i.test(trimmed)) {
+    return { role: "assistant" as const, text: "" };
+  }
+
+  return null;
+}
+
+function truncatePastedMessage(text: string) {
+  const cleaned = text.replace(/\n{3,}/g, "\n\n").trim();
+  const maxLength = 2200;
+  if (cleaned.length <= maxLength) return cleaned;
+  return `${cleaned.slice(0, maxLength)}…`;
+}
+
 function inferAiService(raw: RawConversation) {
   const service = compactText(raw.aiService);
   if (service) return service;
@@ -3446,8 +3744,18 @@ function createReceiptUrl(receipt: IssuedThinkingReceipt) {
 function clearDraftQueryParam() {
   if (typeof window === "undefined") return;
   const url = new URL(window.location.href);
-  if (!url.searchParams.has(DRAFT_QUERY_KEY)) return;
+  const hasTemporaryQuery =
+    url.searchParams.has(DRAFT_QUERY_KEY) ||
+    url.searchParams.get(EXTENSION_SOURCE_QUERY_KEY) === EXTENSION_SOURCE_VALUE ||
+    url.searchParams.has("ts");
+
+  if (!hasTemporaryQuery) return;
+
   url.searchParams.delete(DRAFT_QUERY_KEY);
+  if (url.searchParams.get(EXTENSION_SOURCE_QUERY_KEY) === EXTENSION_SOURCE_VALUE) {
+    url.searchParams.delete(EXTENSION_SOURCE_QUERY_KEY);
+  }
+  url.searchParams.delete("ts");
   const nextUrl = `${url.pathname}${url.search}${url.hash}`;
   window.history.replaceState({}, "", nextUrl);
 }
@@ -3462,7 +3770,11 @@ function hasIncomingReceiptOrDraftParam() {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
-  return params.has(DRAFT_QUERY_KEY) || hashParams.has(RECEIPT_HASH_KEY);
+  return (
+    params.has(DRAFT_QUERY_KEY) ||
+    params.get(EXTENSION_SOURCE_QUERY_KEY) === EXTENSION_SOURCE_VALUE ||
+    hashParams.has(RECEIPT_HASH_KEY)
+  );
 }
 
 function restoreDraftConversationFromUrl() {
@@ -3494,6 +3806,15 @@ function parseDraftConversation(draft: string) {
   }
 
   return null;
+}
+
+function isExtensionConversationMessage(value: unknown): value is {
+  type: typeof EXTENSION_CONVERSATION_MESSAGE;
+  payload: RawConversation;
+} {
+  if (!value || typeof value !== "object") return false;
+  const message = value as { type?: unknown; payload?: unknown };
+  return message.type === EXTENSION_CONVERSATION_MESSAGE && isRawConversation(message.payload);
 }
 
 function safeDecodeURIComponent(value: string) {

@@ -881,6 +881,74 @@ button {
   gap: 10px;
 }
 
+.paste-conversation-panel {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 18px;
+  background: #f8fafc;
+  border: 1px dashed rgba(37, 99, 235, 0.24);
+}
+
+.paste-conversation-panel summary {
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.paste-conversation-body {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.paste-conversation-body p {
+  margin: 0;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.65;
+}
+
+.paste-conversation-field {
+  display: grid;
+  gap: 6px;
+}
+
+.paste-conversation-field span {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.paste-conversation-field textarea {
+  width: 100%;
+  min-height: 150px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 14px;
+  padding: 13px;
+  color: #1e293b;
+  background: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  resize: vertical;
+}
+
+.paste-conversation-field textarea:focus {
+  outline: 3px solid rgba(56, 189, 248, 0.28);
+  border-color: #38bdf8;
+}
+
+.paste-conversation-warning {
+  padding: 10px;
+  border-radius: 14px;
+  color: #1e3a8a !important;
+  background: #eff6ff;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+}
+
 .candidate-message {
   display: flex;
   align-items: flex-start;
@@ -1729,6 +1797,13 @@ button {
 
 .secondary-action:hover {
   background: #dbeafe;
+}
+
+.secondary-action:disabled {
+  cursor: not-allowed;
+  color: #94a3b8;
+  background: #f1f5f9;
+  box-shadow: none;
 }
 
 .save-message {

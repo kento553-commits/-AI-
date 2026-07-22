@@ -142,12 +142,12 @@ const legacyAiRoleMap: Record<string, string> = {
 };
 
 const feelingAfterOptions = [
-  "すっきりした",
   "考えが広がった",
-  "安心した",
-  "迷いが増えた",
-  "頼りすぎたかも",
-  "まだ保留",
+  "迷いが減った",
+  "方向性が見えた",
+  "納得できた",
+  "まだ不安が残った",
+  "その他",
 ];
 
 const thinkingBalanceOptions = [
@@ -175,6 +175,14 @@ const thinkingAmountLabels: Record<ThinkingAmountField, string> = {
   selfJudgmentBalance: "自己判断残高",
 };
 
+const thinkingAmountDescriptions: Record<ThinkingAmountField, string> = {
+  aiBorrowing: "AIにどれくらい助けてもらったか",
+  selfInvestment: "自分の考えをどれくらい出したか",
+  thinkingAsset: "会話後に残った気づきや判断材料",
+  thinkingExpense: "考えるために使った時間や労力",
+  selfJudgmentBalance: "最後に自分で判断できた度合い",
+};
+
 const thinkingAmountFields = Object.keys(thinkingAmountLabels) as ThinkingAmountField[];
 
 const defaultThinkingAmount: ThinkingAmount = {
@@ -186,7 +194,7 @@ const defaultThinkingAmount: ThinkingAmount = {
 };
 
 const thinkingAmountDescription =
-  "思考量は、AIとの会話で生まれた情報・判断・迷い・自分の決定を、思考の取引として記録するための目安です。AIが自動で断定するものではなく、ユーザーが確認・修正できます。";
+  "※思考量は、AIの出力量ではなく、自分の考えや判断がどれだけ入っていたかを表します。";
 
 const emptyLedgerMessage =
   "まだ保存された思考レシートがありません。レシートを発行して帳簿に保存すると、ここに記録が表示されます。";
@@ -1136,7 +1144,7 @@ function App() {
               <section className="product-hero">
                 <p className="eyebrow light">思考レシート</p>
                 <h2>考えたあとに、レシートが出る。</h2>
-                <p>AIとの会話を、使いっぱなしにしない。</p>
+                <p>AIとの会話を、思考レシートとして発行する場所です。</p>
               </section>
 
               <section className="extension-import-card extension-import-card-top">
@@ -1284,11 +1292,9 @@ function LandingHomeScreen({
   onResetDemo: () => void;
 }) {
   const flowSteps = [
-    "AIと会話する",
-    "レシートを発行",
-    "仕訳で分類",
-    "帳簿に保存する",
-    "決算で振り返る",
+    "AIとの会話を入れる",
+    "内容を確認し、自分の言葉に直す",
+    "思考レシートを発行する",
   ];
 
   return (
@@ -1296,22 +1302,52 @@ function LandingHomeScreen({
       <section className="home-hero">
         <p className="eyebrow light">私とAIの確定申告</p>
         <h2>考えたあとに、レシートが出る。</h2>
-        <p>
-          AIとの会話を思考レシートとして発行し、仕訳・帳簿・決算で振り返るサービスです。
-        </p>
+        <p>AIとの会話を、思考レシートとして振り返るサービスです。</p>
         <div className="home-actions">
           <button className="primary-action" type="button" onClick={onLoadDemo}>
             <Sparkles size={18} />
-            サンプル会話を読み込む
-          </button>
-          <button className="secondary-action home-secondary-action" type="button" onClick={onGoReceipt}>
-            レシート画面へ進む
-            <ChevronRight size={17} />
+            まずはサンプルで体験する
           </button>
         </div>
         <p className="home-helper">
-          まずはサンプルで、思考レシートが発行される流れを体験できます。
+          サンプル会話から、思考レシートを発行できます
         </p>
+      </section>
+
+      <section className="home-flow-card" aria-label="使い方">
+        <div className="home-section-heading">
+          <p className="eyebrow">使い方</p>
+          <h3>3ステップで体験</h3>
+        </div>
+        <ol className="home-flow-list">
+          {flowSteps.map((step, index) => (
+            <li key={step}>
+              <span>{index + 1}</span>
+              {step}
+            </li>
+          ))}
+        </ol>
+      </section>
+
+      <section className="home-own-conversation-card" aria-label="自分の会話で作る場合">
+        <div className="home-section-heading">
+          <p className="eyebrow">自分の会話で作る場合</p>
+          <h3>PCでもスマホでも作れます</h3>
+        </div>
+        <div className="home-own-options">
+          <div>
+            <span>PC</span>
+            <strong>拡張機能でChatGPTの会話を取り込む</strong>
+          </div>
+          <div>
+            <span>スマホ</span>
+            <strong>会話をコピーして貼り付ける</strong>
+          </div>
+        </div>
+        <button className="secondary-action home-secondary-action" type="button" onClick={onGoReceipt}>
+          レシート画面へ進む
+          <ChevronRight size={17} />
+        </button>
       </section>
 
       <section className="home-recent-card" aria-label="最近の思考レシート">
@@ -1332,21 +1368,6 @@ function LandingHomeScreen({
             まだ保存された思考レシートはありません。サンプルから流れを試せます。
           </p>
         )}
-      </section>
-
-      <section className="home-flow-card" aria-label="サービスの流れ">
-        <div className="home-section-heading">
-          <p className="eyebrow">流れ</p>
-          <h3>会話から振り返りまで</h3>
-        </div>
-        <ol className="home-flow-list">
-          {flowSteps.map((step, index) => (
-            <li key={step}>
-              <span>{index + 1}</span>
-              {step}
-            </li>
-          ))}
-        </ol>
       </section>
 
       <details className="dev-tools home-dev-tools">
@@ -1727,8 +1748,11 @@ function ConversationCandidateForm({
     <div className="candidate-form">
       <div className="candidate-form-heading">
         <span>STEP 2</span>
-        <strong>自動仕分け結果を確認・修正</strong>
-        <p>AIの評価ではなく、自分とAIの関係を記録するための下書きです。</p>
+        <strong>思考レシートの内容を確認する</strong>
+        <p>
+          AIが会話をもとに仮で整理しました。
+          正しくない部分は、自分の言葉に直してから発行してください。
+        </p>
       </div>
       <CandidateFieldControl
         label="使用AI"
@@ -1780,7 +1804,7 @@ function ConversationCandidateForm({
       <CandidateFieldControl
         label="会話後の気持ち"
         field="feelingAfter"
-        value={candidate.feelingAfter}
+        value={normalizeFeelingAfter(candidate.feelingAfter)}
         options={feelingAfterOptions}
         onChange={onChange}
       />
@@ -1795,6 +1819,10 @@ function ConversationCandidateForm({
         thinkingAmount={candidate.thinkingAmount}
         onChange={onThinkingAmountChange}
       />
+      <p className="candidate-confirmation-note">
+        この内容で思考レシートを発行します。
+        発行後、帳簿・仕訳・決算に記録されます。
+      </p>
       <button className="primary-action" type="button" onClick={onIssue}>
         <ReceiptText size={18} />
         レシートを発行する
@@ -1827,6 +1855,8 @@ function ThinkingAmountEditor({
         {thinkingAmountFields.map((field) => (
           <label className="thinking-amount-control" key={field}>
             <span>{thinkingAmountLabels[field]}</span>
+            <strong>{thinkingAmount[field]}</strong>
+            <small>{thinkingAmountDescriptions[field]}</small>
             <input
               type="range"
               min="1"
@@ -1835,7 +1865,6 @@ function ThinkingAmountEditor({
               value={thinkingAmount[field]}
               onChange={(event) => onChange(field, Number(event.target.value))}
             />
-            <strong>{thinkingAmount[field]}</strong>
           </label>
         ))}
       </div>
@@ -2524,7 +2553,7 @@ function AnalysisScreen({
         <div>
           <p className="eyebrow">月次決算</p>
           <h2>今月のAIとの関係</h2>
-          <p className="screen-purpose">今月のAIとの関係と、今年ここまでの傾向を振り返ります。</p>
+          <p className="screen-purpose">今月のAIとの関わり方を振り返る場所です。</p>
         </div>
       </div>
 
@@ -2626,6 +2655,7 @@ function ReceiptsScreen({
         <div>
           <p className="eyebrow">思考帳簿</p>
           <h2>保存した思考レシート</h2>
+          <p className="screen-purpose">発行した思考レシートをあとから見返す場所です。</p>
         </div>
       </div>
 
@@ -2665,11 +2695,7 @@ function JournalScreen({
     "selfJudgmentBalance",
   ];
   const scoreDescriptions: Record<ThinkingAmountField, string> = {
-    aiBorrowing: "AIから借りた視点や言葉",
-    selfInvestment: "自分の経験や目的を入れた量",
-    thinkingAsset: "あとから使える判断材料",
-    thinkingExpense: "迷い・書き直し・考える負荷",
-    selfJudgmentBalance: "最後に自分で決めた度合い",
+    ...thinkingAmountDescriptions,
   };
   const filteredReceipts =
     categoryFilter === "すべて"
@@ -2683,7 +2709,7 @@ function JournalScreen({
           <p className="eyebrow">仕訳</p>
           <h2>仕訳</h2>
           <p className="screen-purpose">
-            AIとの会話を、思考の役割ごとに分類します。
+            AIが足したことと、自分で決めたことを整理する場所です。
           </p>
           <p className="journal-subcopy">
             AIに借りたもの、自分が出したもの、会話後に残ったものを記録します。
@@ -2996,8 +3022,8 @@ function BottomNav({
 }) {
   const tabs: Array<{ key: TabKey; icon: ReactNode }> = [
     { key: "receipt", icon: <ReceiptText size={20} /> },
-    { key: "journal", icon: <NotebookTabs size={20} /> },
     { key: "receipts", icon: <BookOpenText size={20} /> },
+    { key: "journal", icon: <NotebookTabs size={20} /> },
     { key: "analysis", icon: <CalendarDays size={20} /> },
   ];
 
@@ -3659,13 +3685,15 @@ function normalizeDecisionText(text: string) {
 
 function inferFeelingAfter(allText: string, selfDecision: string) {
   if (selfDecision !== "まだ明確な判断は記録されていません") {
-    return hasAny(allText, ["案", "視点", "改善", "提案", "コンセプト", "体験構造"])
-      ? "考えが広がった"
-      : "すっきりした";
+    if (hasAny(allText, ["案", "視点", "改善", "提案", "コンセプト", "体験構造"])) {
+      return "考えが広がった";
+    }
+    if (hasAny(allText, ["方向性", "見通し", "進め", "優先"])) return "方向性が見えた";
+    return "迷いが減った";
   }
-  if (hasAny(allText, ["不安", "安心", "大丈夫"])) return "安心した";
-  if (hasAny(allText, ["迷", "保留", "悩"])) return "まだ保留";
-  return "まだ保留";
+  if (hasAny(allText, ["安心", "納得", "大丈夫"])) return "納得できた";
+  if (hasAny(allText, ["迷", "保留", "悩", "不安"])) return "まだ不安が残った";
+  return "その他";
 }
 
 function inferThinkingBalance(userCount: number, assistantCount: number, selfDecision: string) {
@@ -3683,6 +3711,18 @@ function normalizeAiRole(value = "") {
   const role = compactText(value);
   if (!role) return "その他";
   return legacyAiRoleMap[role] ?? (aiRoleOptions.includes(role) ? role : "その他");
+}
+
+function normalizeFeelingAfter(value = "") {
+  const feeling = compactText(value);
+  const legacyFeelingMap: Record<string, string> = {
+    すっきりした: "迷いが減った",
+    安心した: "納得できた",
+    迷いが増えた: "まだ不安が残った",
+    頼りすぎたかも: "まだ不安が残った",
+    まだ保留: "その他",
+  };
+  return legacyFeelingMap[feeling] ?? (feelingAfterOptions.includes(feeling) ? feeling : "その他");
 }
 
 function summarizeText(text: string, maxLength: number) {
@@ -3708,6 +3748,7 @@ function createIssuedReceipt(candidate: ThoughtReceiptCandidate): IssuedThinking
   return {
     ...candidate,
     aiRole,
+    feelingAfter: normalizeFeelingAfter(candidate.feelingAfter),
     consultationCategory:
       candidate.consultationCategory ||
       inferConsultationCategory(candidate.topic, aiRole, candidate.selfDecision),
@@ -3729,7 +3770,7 @@ function toReceiptCandidate(receipt: IssuedThinkingReceipt): ThoughtReceiptCandi
     aiRole,
     aiAdded: receipt.aiAdded,
     selfDecision: receipt.selfDecision,
-    feelingAfter: receipt.feelingAfter,
+    feelingAfter: normalizeFeelingAfter(receipt.feelingAfter),
     thinkingBalance: receipt.thinkingBalance,
     thinkingAmount: normalizeThinkingAmount(receipt.thinkingAmount),
   };

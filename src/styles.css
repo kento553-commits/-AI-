@@ -209,15 +209,23 @@ button {
 }
 
 .home-hero .primary-action {
+  min-height: 60px;
+  border-radius: 20px;
   background: #ffffff;
   color: #1d4ed8;
   box-shadow: 0 14px 26px rgba(15, 23, 42, 0.16);
+  font-size: 15px;
 }
 
-.home-secondary-action {
+.home-hero .home-secondary-action {
   color: #ffffff;
   background: rgba(255, 255, 255, 0.16);
   border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.home-secondary-action {
+  min-height: 42px;
+  font-size: 13px;
 }
 
 .home-helper {
@@ -226,7 +234,8 @@ button {
 }
 
 .home-recent-card,
-.home-flow-card {
+.home-flow-card,
+.home-own-conversation-card {
   display: grid;
   gap: 14px;
   padding: 18px;
@@ -234,6 +243,41 @@ button {
   background: #ffffff;
   border: 1px solid rgba(148, 163, 184, 0.14);
   box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.home-own-conversation-card {
+  gap: 12px;
+}
+
+.home-own-options {
+  display: grid;
+  gap: 8px;
+}
+
+.home-own-options div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 16px;
+  color: #334155;
+  background: #f8fafc;
+  border: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.home-own-options span {
+  width: fit-content;
+  padding: 3px 8px;
+  border-radius: 999px;
+  color: #2563eb;
+  background: #dbeafe;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.home-own-options strong {
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .home-section-heading h3 {
@@ -1070,12 +1114,20 @@ button {
 
 .thinking-amount-control {
   display: grid;
-  grid-template-columns: 86px 1fr 24px;
-  gap: 8px;
+  grid-template-columns: 1fr auto;
+  gap: 6px 10px;
   align-items: center;
+  padding-bottom: 10px;
+  border-bottom: 1px dashed rgba(37, 99, 235, 0.16);
+}
+
+.thinking-amount-control:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
 }
 
 .thinking-amount-control input {
+  grid-column: 1 / -1;
   width: 100%;
   accent-color: #2563eb;
 }
@@ -1084,6 +1136,27 @@ button {
   color: #1e293b;
   font-size: 13px;
   text-align: right;
+}
+
+.thinking-amount-control small {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.5;
+}
+
+.candidate-confirmation-note {
+  margin: 0;
+  padding: 12px;
+  border-radius: 14px;
+  color: #1e3a8a;
+  background: #eff6ff;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  font-size: 12px;
+  font-weight: 800;
+  line-height: 1.65;
 }
 
 .issued-receipt-panel {

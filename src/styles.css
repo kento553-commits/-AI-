@@ -256,7 +256,7 @@ button {
 
 .home-own-options div {
   display: grid;
-  gap: 4px;
+  gap: 6px;
   padding: 12px;
   border-radius: 16px;
   color: #334155;
@@ -278,6 +278,15 @@ button {
   color: #0f172a;
   font-size: 13px;
   line-height: 1.45;
+}
+
+.home-own-options small,
+.home-own-note {
+  margin: 0;
+  color: #64748b;
+  font-size: 11.5px;
+  font-weight: 750;
+  line-height: 1.6;
 }
 
 .home-section-heading h3 {
@@ -1294,8 +1303,13 @@ button {
 }
 
 .receipt-print-title,
+.receipt-print-subtitle,
 .receipt-print-tagline,
 .receipt-print-label,
+.receipt-print-management,
+.receipt-print-notes,
+.receipt-print-qr-meaning,
+.receipt-print-section-title,
 .receipt-value-print {
   display: none;
 }
@@ -3255,9 +3269,9 @@ button {
 
   .receipt-print-title {
     display: block;
-    margin: 0 0 3mm;
-    padding: 0 0 2mm;
-    border-bottom: 1px dashed #000000;
+    margin: 0 0 1.2mm;
+    padding: 0;
+    border-bottom: 0;
     color: #000000 !important;
     font-size: 16px;
     line-height: 1.2;
@@ -3265,13 +3279,20 @@ button {
     font-weight: 800;
   }
 
-  .issued-receipt-header {
-    display: grid;
-    grid-template-columns: 18mm 1fr;
-    gap: 1mm 2mm;
-    margin: 0 0 2mm;
+  .receipt-print-subtitle {
+    display: block;
+    margin: 0 0 3mm;
     padding: 0 0 2mm;
     border-bottom: 1px dashed #000000;
+    color: #000000 !important;
+    font-size: 9.5px;
+    line-height: 1.45;
+    text-align: center;
+    font-weight: 700;
+  }
+
+  .issued-receipt-header {
+    display: none !important;
   }
 
   .receipt-status-label {
@@ -3296,8 +3317,8 @@ button {
 
   .issued-receipt-body {
     display: grid;
-    gap: 1.45mm;
-    padding: 0 0 2mm;
+    gap: 1.9mm;
+    padding: 0 0 2.6mm;
     border-bottom: 1px dashed #000000;
     break-inside: avoid;
     page-break-inside: avoid;
@@ -3305,10 +3326,14 @@ button {
 
   .receipt-info-row {
     display: block;
-    padding: 0;
+    padding: 0.5mm 0;
     border: 0;
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  .receipt-info-row-screen-meta {
+    display: none !important;
   }
 
   .receipt-info-row span {
@@ -3324,9 +3349,92 @@ button {
     color: #000000 !important;
     font-size: 10px;
     font-weight: 500;
-    line-height: 1.45;
+    line-height: 1.58;
     overflow-wrap: anywhere;
     white-space: pre-wrap;
+  }
+
+  .receipt-info-row-emphasis {
+    padding: 1.4mm 1.6mm;
+    border: 1px solid #000000;
+  }
+
+  .receipt-info-row-emphasis span {
+    margin-bottom: 0.8mm;
+  }
+
+  .receipt-info-row-emphasis strong {
+    font-size: 10.5px;
+    font-weight: 800;
+    line-height: 1.62;
+  }
+
+  .receipt-print-section-title {
+    display: block;
+    margin: 1.5mm 0 0.4mm;
+    color: #000000 !important;
+    font-size: 10px;
+    font-weight: 900;
+    line-height: 1.4;
+  }
+
+  .receipt-info-row-score {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: baseline;
+    gap: 2mm;
+    padding: 0.8mm 0 1.2mm;
+    border-bottom: 1px dotted #000000;
+  }
+
+  .receipt-info-row-score span,
+  .receipt-info-row-score strong {
+    display: block;
+    margin: 0;
+    line-height: 1.35;
+  }
+
+  .receipt-info-row-score strong {
+    min-width: 6mm;
+    font-size: 11px;
+    font-weight: 800;
+    text-align: right;
+  }
+
+  .receipt-info-row-self-judgment span,
+  .receipt-info-row-self-judgment strong {
+    font-weight: 900;
+  }
+
+  .receipt-info-row-total {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 2mm;
+    margin: 1.8mm 0 0.6mm;
+    padding: 2mm 0;
+    border-top: 2px dashed #000000;
+    border-bottom: 2px dashed #000000;
+  }
+
+  .receipt-info-row-total span,
+  .receipt-info-row-total strong {
+    display: block;
+    margin: 0;
+    color: #000000 !important;
+    line-height: 1.1;
+  }
+
+  .receipt-info-row-total span {
+    font-size: 12px;
+    font-weight: 900;
+  }
+
+  .receipt-info-row-total strong {
+    min-width: 10mm;
+    font-size: 20px;
+    font-weight: 900;
+    text-align: right;
   }
 
   .receipt-value-screen {
@@ -3335,6 +3443,18 @@ button {
 
   .receipt-value-print {
     display: block !important;
+  }
+
+  .receipt-print-notes {
+    display: grid;
+    gap: 0.8mm;
+    margin: 2mm 0 0;
+    color: #000000 !important;
+    font-size: 8.5px;
+    font-weight: 600;
+    line-height: 1.45;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .qr-panel {
@@ -3363,13 +3483,18 @@ button {
   }
 
   .qr-description {
+    display: none !important;
+  }
+
+  .receipt-print-qr-meaning {
+    display: block;
     width: 100%;
     margin: 0;
     color: #000000 !important;
-    font-size: 9px;
+    font-size: 10px;
     line-height: 1.45;
     text-align: center;
-    font-weight: 500;
+    font-weight: 800;
   }
 
   .receipt-print-tagline {
@@ -3382,6 +3507,20 @@ button {
     line-height: 1.4;
     text-align: center;
     font-weight: 700;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .receipt-print-management {
+    display: grid;
+    gap: 0.6mm;
+    margin: 2mm 0 0;
+    padding: 1.5mm 0 0;
+    border-top: 1px dashed #000000;
+    color: #000000 !important;
+    font-size: 7.8px;
+    line-height: 1.35;
+    font-weight: 500;
     break-inside: avoid;
     page-break-inside: avoid;
   }

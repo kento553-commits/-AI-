@@ -1033,7 +1033,6 @@ function App() {
       console.log("thinkingLedger", updatedLedger);
       setThinkingLedger(updatedLedger);
       setLedgerMessage("思考帳簿に保存しました");
-      setLedgerMessage("帳簿に保存しました。");
     } catch {
       setLedgerMessage("帳簿に保存できませんでした。ブラウザの保存設定を確認してください。");
     }
@@ -1170,7 +1169,7 @@ function App() {
                   <summary>拡張機能が使えない場合はこちら</summary>
                   <div className="paste-conversation-body">
                     <p>
-                      スマホでは拡張機能が使えない場合があります。ChatGPTとの会話をコピーして貼り付けることで、思考レシートを作成できます。
+                      スマホや他のAIサービスでは、会話をコピーして貼り付けることで思考レシートを作成できます。
                     </p>
                     <label className="paste-conversation-field" htmlFor="pasted-conversation">
                       <span>会話を貼り付ける</span>
@@ -1178,7 +1177,7 @@ function App() {
                         id="pasted-conversation"
                         value={pastedConversationText}
                         rows={7}
-                        placeholder={"例：\nUser: 作品コンセプトを整理したいです。\nChatGPT: レシート、仕訳、決算の流れで見せると伝わりやすいです。"}
+                        placeholder={"例：\nUser: 作品コンセプトを整理したいです。\nAI: レシート、仕訳、決算の流れで見せると伝わりやすいです。"}
                         onChange={(event) => setPastedConversationText(event.target.value)}
                       />
                     </label>
@@ -1292,7 +1291,7 @@ function LandingHomeScreen({
   onResetDemo: () => void;
 }) {
   const flowSteps = [
-    "AIとの会話を入れる",
+    "AIとの会話を取り込む",
     "内容を確認し、自分の言葉に直す",
     "思考レシートを発行する",
   ];
@@ -1338,12 +1337,17 @@ function LandingHomeScreen({
           <div>
             <span>PC</span>
             <strong>拡張機能でChatGPTの会話を取り込む</strong>
+            <small>PCでは、Chrome拡張機能を使ってChatGPTの会話を取り込めます。</small>
           </div>
           <div>
             <span>スマホ</span>
             <strong>会話をコピーして貼り付ける</strong>
+            <small>スマホや他のAIサービスでは、会話をコピーして貼り付けることで思考レシートを作成できます。</small>
           </div>
         </div>
+        <p className="home-own-note">
+          現在の拡張機能はChatGPTの会話取り込みに対応しています。他のAIサービスでは、会話をコピーして貼り付けて利用できます。
+        </p>
         <button className="secondary-action home-secondary-action" type="button" onClick={onGoReceipt}>
           レシート画面へ進む
           <ChevronRight size={17} />
@@ -1966,6 +1970,7 @@ function IssuedReceiptPanel({
   return (
     <section className="issued-receipt-panel">
       <h2 className="receipt-print-title">思考レシート</h2>
+      <p className="receipt-print-subtitle">AIと自分の思考を振り返る記録</p>
       <div className="issued-receipt-header">
         <span className="receipt-status-label">発行済み思考レシート</span>
         <span className="receipt-print-label">receiptNo</span>
@@ -1994,10 +1999,7 @@ function IssuedReceiptPanel({
           printValue={shortenForPrint(receipt.feelingAfter, 28)}
         />
         <ReceiptInfoRow label="思考残高" value={receipt.thinkingBalance} />
-        <ReceiptInfoRow
-          label="思考量合計"
-          value={`${getTotalThinkingAmount(receipt.thinkingAmount)}`}
-        />
+        <div className="receipt-print-section-title">思考の明細</div>
         {thinkingAmountFields.map((field) => (
           <ReceiptInfoRow
             key={field}
@@ -2005,6 +2007,14 @@ function IssuedReceiptPanel({
             value={`${receipt.thinkingAmount[field]}`}
           />
         ))}
+        <ReceiptInfoRow
+          label="思考量合計"
+          value={`${getTotalThinkingAmount(receipt.thinkingAmount)}`}
+        />
+      </div>
+      <div className="receipt-print-notes">
+        <span>※各項目は5段階で記録</span>
+        <span>※発行前にユーザーが確認</span>
       </div>
 
       <div className="qr-panel">
@@ -2016,9 +2026,15 @@ function IssuedReceiptPanel({
         <p className="qr-description">
           このQRを読み取ると、紙の思考レシートから同じ記録に戻ることができます。
         </p>
+        <p className="receipt-print-qr-meaning">紙から、思考の続きへ。</p>
         {qrMessage && <p className="qr-error">{qrMessage}</p>}
       </div>
       <p className="receipt-print-tagline">考えたあとに、レシートが出る。</p>
+      <div className="receipt-print-management" aria-label="管理情報">
+        <span>使用AI {receipt.aiService}</span>
+        <span>発行日時 {receipt.issuedAt}</span>
+        <span>レシート番号 {receipt.receiptNo}</span>
+      </div>
 
       <p className="receipt-save-hint">
         発行した思考レシートは、このまま思考帳簿に保存できます。
@@ -2064,8 +2080,21 @@ function ReceiptInfoRow({
   value: string;
   printValue?: string;
 }) {
+  const rowClasses = [
+    "receipt-info-row",
+    ["発行日時", "使用AI", "会話日時"].includes(label) ? "receipt-info-row-screen-meta" : "",
+    ["AIが足したこと", "自分で決めたこと", "会話後の気持ち"].includes(label)
+      ? "receipt-info-row-emphasis"
+      : "",
+    label === "思考量合計" ? "receipt-info-row-total" : "",
+    Object.values(thinkingAmountLabels).includes(label) ? "receipt-info-row-score" : "",
+    label === thinkingAmountLabels.selfJudgmentBalance ? "receipt-info-row-self-judgment" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   return (
-    <div className="receipt-info-row">
+    <div className={rowClasses}>
       <span>{label}</span>
       <strong className="receipt-value-screen">{value}</strong>
       <strong className="receipt-value-print">{printValue ?? value}</strong>
@@ -2077,8 +2106,8 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
   const width = 424;
   const padding = 22;
   const contentWidth = width - padding * 2;
-  const qrSize = 142;
-  const height = 1160;
+  const qrSize = 134;
+  const height = 1300;
 
   const canvas = document.createElement("canvas");
   canvas.width = width;
@@ -2095,7 +2124,7 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
   context.fillText("思考レシート", width / 2, y);
   y += 36;
   context.font = '13px "Yu Gothic", Meiryo, sans-serif';
-  context.fillText("AIとの対話から生まれた思考の明細", width / 2, y);
+  context.fillText("AIと自分の思考を振り返る記録", width / 2, y);
   y += 24;
   y = drawM02Separator(context, padding, y, contentWidth);
 
@@ -2111,9 +2140,9 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
   y = drawM02Separator(context, padding, y + 4, contentWidth);
 
   context.textAlign = "left";
-  context.font = 'bold 14px "Yu Gothic", Meiryo, sans-serif';
-  context.fillText("思考の数値", padding, y);
-  y += 24;
+  context.font = 'bold 15px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("思考の明細", padding, y);
+  y += 30;
   const scoreRows = [
     ["AI借入", receipt.thinkingAmount.aiBorrowing, false],
     ["自己出資", receipt.thinkingAmount.selfInvestment, false],
@@ -2125,7 +2154,7 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
     y = drawM02ScoreRow(context, label, value, padding, y, contentWidth, emphasize);
   });
 
-  y += 8;
+  y += 12;
   y = drawM02TotalBox(
     context,
     getTotalThinkingAmount(receipt.thinkingAmount),
@@ -2134,14 +2163,12 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
     contentWidth,
   );
   context.textAlign = "left";
-  context.font = '11px "Yu Gothic", Meiryo, sans-serif';
-  wrapCanvasText(context, "※対話内容をもとに、各項目を5段階で記録", contentWidth, 2).forEach(
-    (line) => {
-      context.fillText(line, padding, y);
-      y += 16;
-    },
-  );
-  y = drawM02Separator(context, padding, y + 8, contentWidth);
+  context.font = '10.5px "Yu Gothic", Meiryo, sans-serif';
+  ["※各項目は5段階で記録", "※発行前にユーザーが確認"].forEach((line) => {
+    context.fillText(line, padding, y);
+    y += 17;
+  });
+  y = drawM02Separator(context, padding, y + 10, contentWidth);
 
   const qrDataUrl = await QRCode.toDataURL(receiptUrl, {
     errorCorrectionLevel: "M",
@@ -2156,11 +2183,11 @@ async function createM02ReceiptImage(receipt: IssuedThinkingReceipt, receiptUrl:
   context.textAlign = "center";
   context.font = 'bold 15px "Yu Gothic", Meiryo, sans-serif';
   context.fillText("紙から、思考の続きへ。", width / 2, y);
-  y += 24;
-  y = drawM02Separator(context, padding, y + 8, contentWidth);
+  y += 28;
+  y = drawM02Separator(context, padding, y + 10, contentWidth);
   context.font = 'bold 14px "Yu Gothic", Meiryo, sans-serif';
   context.fillText("考えたあとに、レシートが出る。", width / 2, y);
-  y += 26;
+  y += 30;
 
   y = drawM02Separator(context, padding, y, contentWidth);
   context.textAlign = "left";
@@ -2189,13 +2216,13 @@ function drawM02TextBlock(
   context.textAlign = "left";
   context.font = 'bold 11px "Yu Gothic", Meiryo, sans-serif';
   context.fillText(label, x, y);
-  y += 17;
+  y += 19;
   context.font = `${options.bold ? "bold " : ""}${options.valueSize ?? 15}px "Yu Gothic", Meiryo, sans-serif`;
   wrapCanvasText(context, value, width, options.maxLines).forEach((line) => {
     context.fillText(line, x, y);
-    y += (options.valueSize ?? 15) + 6;
+    y += (options.valueSize ?? 15) + 8;
   });
-  return y + 8;
+  return y + 12;
 }
 
 function drawM02HighlightBlock(
@@ -2206,14 +2233,27 @@ function drawM02HighlightBlock(
   y: number,
   width: number,
 ) {
+  const innerX = x + 11;
+  const innerWidth = width - 22;
+  context.font = 'bold 15.5px "Yu Gothic", Meiryo, sans-serif';
+  const lines = wrapCanvasText(context, shortenForPrint(value, 62), innerWidth, 2);
+  const boxHeight = 48 + lines.length * 24;
+
   context.strokeStyle = "#000000";
   context.lineWidth = 1;
-  context.strokeRect(x, y, width, 76);
-  return drawM02TextBlock(context, label, shortenForPrint(value, 52), x + 10, y + 9, width - 20, {
-    maxLines: 2,
-    valueSize: 15,
-    bold: true,
-  }) + 4;
+  context.strokeRect(x, y, width, boxHeight);
+
+  let textY = y + 12;
+  context.textAlign = "left";
+  context.font = 'bold 11px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText(label, innerX, textY);
+  textY += 22;
+  context.font = 'bold 15.5px "Yu Gothic", Meiryo, sans-serif';
+  lines.forEach((line) => {
+    context.fillText(line, innerX, textY);
+    textY += 24;
+  });
+  return y + boxHeight + 16;
 }
 
 function drawM02KeyValue(
@@ -2228,10 +2268,10 @@ function drawM02KeyValue(
   context.textAlign = "left";
   context.font = 'bold 12px "Yu Gothic", Meiryo, sans-serif';
   context.fillText(label, x, y);
-  context.font = `${emphasize ? "bold " : ""}15px "Yu Gothic", Meiryo, sans-serif`;
+  context.font = `${emphasize ? "bold " : ""}${emphasize ? 16 : 15}px "Yu Gothic", Meiryo, sans-serif`;
   context.textAlign = "right";
-  context.fillText(shortenForPrint(value, 18), x + width, y - 1);
-  return y + 28;
+  context.fillText(shortenForPrint(value, 18), x + width, y);
+  return y + (emphasize ? 38 : 34);
 }
 
 function drawM02ScoreRow(
@@ -2246,17 +2286,22 @@ function drawM02ScoreRow(
   context.textAlign = "left";
   context.font = `${emphasize ? "bold " : ""}14px "Yu Gothic", Meiryo, sans-serif`;
   context.fillText(label, x, y);
+  const labelWidth = context.measureText(label).width;
   context.textAlign = "right";
   context.font = `bold ${emphasize ? 19 : 16}px "Yu Gothic", Meiryo, sans-serif`;
-  context.fillText(String(value), x + width, y - (emphasize ? 3 : 1));
+  context.fillText(String(value), x + width, y);
   context.strokeStyle = "#000000";
   context.setLineDash([2, 4]);
   context.beginPath();
-  context.moveTo(x, y + 23);
-  context.lineTo(x + width, y + 23);
+  context.moveTo(x + labelWidth + 12, y + 23);
+  context.lineTo(x + width - 24, y + 23);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(x, y + 34);
+  context.lineTo(x + width, y + 34);
   context.stroke();
   context.setLineDash([]);
-  return y + 28;
+  return y + 42;
 }
 
 function drawM02TotalBox(
@@ -2268,15 +2313,24 @@ function drawM02TotalBox(
 ) {
   context.strokeStyle = "#000000";
   context.lineWidth = 2;
-  context.strokeRect(x, y, width, 58);
+  context.setLineDash([7, 4]);
+  context.beginPath();
+  context.moveTo(x, y);
+  context.lineTo(x + width, y);
+  context.stroke();
+  context.beginPath();
+  context.moveTo(x, y + 78);
+  context.lineTo(x + width, y + 78);
+  context.stroke();
+  context.setLineDash([]);
   context.textAlign = "left";
-  context.font = 'bold 18px "Yu Gothic", Meiryo, sans-serif';
-  context.fillText("思考量合計", x + 12, y + 17);
+  context.font = 'bold 19px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText("思考量合計", x + 8, y + 27);
   context.textAlign = "right";
-  context.font = 'bold 32px "Yu Gothic", Meiryo, sans-serif';
-  context.fillText(String(total), x + width - 12, y + 10);
+  context.font = 'bold 38px "Yu Gothic", Meiryo, sans-serif';
+  context.fillText(String(total), x + width - 8, y + 18);
   context.lineWidth = 1;
-  return y + 72;
+  return y + 94;
 }
 
 function drawM02Separator(
@@ -2293,7 +2347,7 @@ function drawM02Separator(
   context.lineTo(x + width, y);
   context.stroke();
   context.restore();
-  return y + 16;
+  return y + 20;
 }
 
 function wrapCanvasText(
@@ -3418,7 +3472,7 @@ function createRawConversationFromPastedText(text: string): RawConversation {
     .find(Boolean);
 
   return {
-    aiService: "ChatGPT",
+    aiService: inferAiServiceFromPastedText(normalizedText),
     url: "manual-paste",
     capturedAt: formatCurrentConversationDate(),
     conversationTitle: summarizeText(firstUserText || firstLine || "貼り付けた会話", 30),
@@ -3471,7 +3525,7 @@ function parsePastedRoleLine(line: string) {
   const trimmed = line.trim();
   const patterns: Array<[RegExp, "user" | "assistant"]> = [
     [/^(?:user|you|あなた|ユーザー|自分)(?:\s+said)?\s*[:：]\s*(.*)$/i, "user"],
-    [/^(?:chatgpt|assistant|ai|アシスタント|回答)(?:\s+said)?\s*[:：]\s*(.*)$/i, "assistant"],
+    [/^(?:chatgpt|claude|gemini|perplexity|copilot|notebooklm|assistant|ai|アシスタント|回答)(?:\s+said)?\s*[:：]\s*(.*)$/i, "assistant"],
   ];
 
   for (const [pattern, role] of patterns) {
@@ -3488,7 +3542,7 @@ function parsePastedRoleLine(line: string) {
     return { role: "user" as const, text: "" };
   }
 
-  if (/^(?:chatgpt|assistant|ai|アシスタント|回答)$/i.test(trimmed)) {
+  if (/^(?:chatgpt|claude|gemini|perplexity|copilot|notebooklm|assistant|ai|アシスタント|回答)$/i.test(trimmed)) {
     return { role: "assistant" as const, text: "" };
   }
 
@@ -3500,6 +3554,17 @@ function truncatePastedMessage(text: string) {
   const maxLength = 2200;
   if (cleaned.length <= maxLength) return cleaned;
   return `${cleaned.slice(0, maxLength)}…`;
+}
+
+function inferAiServiceFromPastedText(text: string) {
+  const lower = text.toLowerCase();
+  if (lower.includes("chatgpt")) return "ChatGPT";
+  if (lower.includes("claude")) return "Claude";
+  if (lower.includes("gemini")) return "Gemini";
+  if (lower.includes("perplexity")) return "Perplexity";
+  if (lower.includes("notebooklm")) return "NotebookLM";
+  if (lower.includes("copilot")) return "Copilot";
+  return "その他";
 }
 
 function inferAiService(raw: RawConversation) {
